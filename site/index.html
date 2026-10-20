@@ -122,7 +122,16 @@
 
     <div class="build-grid">
       <div class="section" style="gap:12px">
-        <form class="search" id="build-search"><label class="sr-only" for="address">Address or town</label><input id="address" type="text" placeholder="Type an address or town" autocomplete="street-address"><button class="btn secondary" type="submit">Find</button></form>
+        <form class="search" id="build-search" role="search">
+          <div class="combo">
+            <label class="sr-only" for="address">Address or town</label>
+            <input id="address" type="text" placeholder="Type an address or town" autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="address-list">
+            <ul class="suggest" id="address-list" role="listbox" aria-label="Suggestions" hidden></ul>
+          </div>
+          <button class="btn secondary" type="submit">Find</button>
+          <button class="btn secondary icon-btn" type="button" id="locate" aria-label="Use my location" title="Use my location"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+        </form>
+        <p class="muted map-hint" id="map-hint">Click or tap the map to place your pin. Drag to move around, and drag the pin to fine-tune it.</p>
         <div class="map" id="build-map"></div>
       </div>
       <div class="card">
@@ -154,6 +163,7 @@
             <dt>Standard straw would release at</dt><dd id="tune-std">–</dd>
           </dl>
           <p class="muted" id="tune-note" style="font-size:.88rem"></p>
+          <p class="muted" id="tune-cal" style="font-size:.8rem"></p>
           <label for="install-month" class="muted" style="font-size:.9rem">When will you install it?</label>
           <select id="install-month"><option value="0">January</option><option value="1">February</option><option value="2" selected>March</option><option value="3">April</option><option value="4">May</option></select>
           <p class="muted" id="install-hint" style="font-size:.85rem"></p>

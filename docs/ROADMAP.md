@@ -33,6 +33,25 @@ Height probably has a big effect on whether bees move in [to verify]. The curren
   - 100 % allPHA (R8) rules out a wooden stake unless that requirement changes;
   - the stem is sun-exposed, so the UV wall-thickness rule (1.6–2 mm) applies.
 
+## Polish list (small interactions, for the end)
+
+Fixed on 20 Oct 2026: address suggestions while typing; no map jump when placing a pin; crosshair and closed-hand cursors; sharper satellite tiles on high-density screens; "Use my location"; suggestion list no longer hidden under the map controls on phones.
+
+Still to look at:
+
+- Suggestions: show a small pin or place-type icon per row (street, town, landmark), and highlight the typed letters.
+- Map: a subtle drop animation for the pin (respecting reduced motion), and a short "Pin placed" confirmation for screen readers.
+- Map: remember the last pin and zoom between visits.
+- Soil: SoilGrids often takes 15–60 s. Show a small progress hint in the Soil row, or move soil lookups to our own server with caching.
+- Phone: make the map a little taller on small screens, and keep the search row visible while the suggestion list is open.
+- Your site card: show the AlphaEarth image larger on tap.
+
+## Notes on the decay estimate (website version)
+
+- **Wet days** now use a relative rule: a day counts as wet when topsoil moisture is in the upper half of that place's own usual range (5th–95th percentile over the years fetched). Reason: with a fixed 0.25 m³/m³ threshold, recent Open-Meteo data marked De Bilt wet on 100 % of days and Munich on 3 %, although Munich had more rain; the fixed value mostly reflected the weather model's soil type. [assumed, to check with Mateo]
+- **Calibration** now compares each live pin with live De Bilt weather from the same source, years and rule, so "13 months at De Bilt" holds for real data too. Example climates are still compared with the example De Bilt climate.
+- **Soil texture** (SoilGrids) is shown but does not change the estimate yet. Linking texture to decay speed needs the burial calibration.
+
 ## Other open items
 
 - Real print files per printer (port of the Grasshopper generator; S5 first, then a 1.75 mm Marlin printer).

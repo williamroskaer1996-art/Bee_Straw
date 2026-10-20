@@ -42,6 +42,15 @@ AlphaEarth data can only be read through Google Earth Engine, so the site asks a
 
 The site then shows the real fingerprint in **Your site** and adds an **AlphaEarth 2024** layer to the map. Attribution required by the dataset licence (CC BY 4.0) is already in the site footer.
 
+## Outside services the site calls (no keys needed)
+
+| Service | Used for | Notes |
+|---|---|---|
+| Open-Meteo (archive + geocoding) | Weather for the pin; town search | Free for non-commercial use. Each visitor's browser has its own daily limit. |
+| Photon (komoot, OpenStreetMap data) | Address suggestions while typing | Free, fair use. Run our own Photon or switch to Google Places if traffic grows. |
+| SoilGrids (ISRIC) | Topsoil clay, sand and silt | Free, often slow (15–60 s); answers are cached per ~1 km in the visitor's browser. |
+| Esri World Imagery | Satellite map tiles | See step 4 below. |
+
 ## 4. Map
 
 Without a key, **Build your straw** shows a satellite map (Leaflet with Esri World Imagery, credited on the map). Check Esri's terms of use before a large public launch [to verify]. To use Google Maps instead, follow step 5.

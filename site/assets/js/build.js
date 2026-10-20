@@ -2,7 +2,8 @@
 // The decay preview is a simplified, literature-based estimate, not Mateo's full engine:
 //   wear per day = 0.6 µm/day/face at 25 °C (range 0.3–1.4), halved per 10 °C colder (Q10 = 2, assumed),
 //   counted only on days the soil is wet. Calibrated so the standard fuse at De Bilt releases at 13.0 months
-//   (the straw fuse study). Every number it shows is model output, uncalibrated.
+//   (the straw fuse study), using De Bilt weather from the same source as the pin, so places are compared
+//   like with like. Every number it shows is model output, uncalibrated.
 (function () {
   "use strict";
   const CFG = window.BEESTRAW_CONFIG || {};
@@ -60,7 +61,14 @@
     return Infinity;
   }
   // Calibration: threshold for the standard fuse = De Bilt dose at 13.0 months from the same install month.
-  function calibration(startMonth) { return doseAt(cumulative(exampleMonths(EXAMPLES[0]), startMonth, 14), TARGET); }
+  // Live pins are compared with live De Bilt weather (same source, same years, same wet rule);
+  // example climates with the example De Bilt climate.
+  const DE_BILT = { lat: 52.10, lon: 5.18 };
+  let reference = null; // live De Bilt climate, once loaded
+  function calibration(startMonth, source) {
+    const months = source === "live" && reference ? reference.months : exampleMonths(EXAMPLES[0]);
+    return doseAt(cumulative(months, startMonth, 14), TARGET);
+  }
 
   // ---------- State
   const state = { site: null, climate: null, source: "example", install: 2, month: 0, result: null };
@@ -80,7 +88,8 @@
   }
   function initGoogle() {
     mapEl.innerHTML = "";
-    gmap = new google.maps.Map(mapEl, { center: { lat: 50, lng: 9 }, zoom: 4, mapTypeId: "hybrid", streetViewControl: false, mapId: "beestraw" });
+    gmap = new google.maps.Map(mapEl, { center: { lat: 50, lng: 9 }, zoom: 4, mapTypeId: "hybrid", streetViewControl: false, mapId: "beestraw",
+      draggableCursor: "crosshair", draggingCursor: "grabbing", clickableIcons: false });
     gmarker = new google.maps.marker.AdvancedMarkerElement({ map: gmap, gmpDraggable: true });
     gmap.addListener("click", function (e) { setPlace(e.latLng.lat(), e.latLng.lng(), null); });
     gmarker.addListener("dragend", function () { const p = gmarker.position; setPlace(p.lat, p.lng, null); });
@@ -103,15 +112,17 @@
   function initLeaflet() {
     return new Promise(function (resolve, reject) {
       mapEl.innerHTML = "";
-      lmap = L.map(mapEl, { center: [50, 9], zoom: 4, zoomControl: true, attributionControl: true });
+      lmap = L.map(mapEl, { center: [50, 9], zoom: 4, zoomControl: true, attributionControl: true, maxZoom: 20 });
+      // detectRetina: sharper imagery on high-density screens (requests one zoom level deeper).
       const sat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
-        maxZoom: 19, attribution: "Imagery © Esri, Maxar, Earthstar Geographics"
+        maxZoom: 20, maxNativeZoom: 19, detectRetina: true, attribution: "Imagery © Esri, Maxar, Earthstar Geographics"
       });
       const labels = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, opacity: 0.85 });
       let loaded = 0, failed = 0, done = false;
       sat.on("tileload", function () { loaded++; if (!done) { done = true; resolve(); } });
-      sat.on("tileerror", function () { failed++; if (!done && failed >= 6 && loaded === 0) { done = true; lmap.remove(); lmap = null; reject(new Error("tiles blocked")); } });
-      setTimeout(function () { if (!done) { done = true; if (lmap) { lmap.remove(); lmap = null; } reject(new Error("timeout")); } }, 6000);
+      const fail = function (why) { done = true; if (lmap) lmap.remove(); lmap = null; lmarker = null; reject(new Error(why)); };
+      sat.on("tileerror", function () { failed++; if (!done && failed >= 6 && loaded === 0) fail("tiles blocked"); });
+      setTimeout(function () { if (!done) fail("timeout"); }, 6000);
       sat.addTo(lmap); labels.addTo(lmap);
       lmap.layers = { base: { Satellite: sat }, overlay: { Labels: labels } };
       lmarker = L.marker([50, 9], { draggable: true, keyboard: true, title: "Your straw", alt: "Your straw" });
@@ -150,6 +161,7 @@
   const px = (lon) => ((lon - BOX.lon0) / (BOX.lon1 - BOX.lon0)) * BOX.w;
   const py = (lat) => ((BOX.lat1 - lat) / (BOX.lat1 - BOX.lat0)) * BOX.h;
   function initPreviewMap() {
+    $("map-hint").textContent = "Preview map: click to place a pin, or pick an example town.";
     let g = "";
     for (let lon = -10; lon <= 30; lon += 10) g += '<line x1="' + px(lon) + '" y1="0" x2="' + px(lon) + '" y2="' + BOX.h + '"/><text x="' + (px(lon) + 3) + '" y="' + (BOX.h - 6) + '">' + Math.abs(lon) + "°" + (lon < 0 ? "W" : "E") + "</text>";
     for (let lat = 40; lat <= 70; lat += 10) g += '<line x1="0" y1="' + py(lat) + '" x2="' + BOX.w + '" y2="' + py(lat) + '"/><text x="4" y="' + (py(lat) - 4) + '">' + lat + "°N</text>";
@@ -176,38 +188,147 @@
       if (site && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); const ex = EXAMPLES[+site.dataset.i]; setPlace(ex.lat, ex.lon, ex.name); }
     });
   }
-  function movePin(lat, lon) {
-    if (gmarker) { gmarker.position = { lat: lat, lng: lon }; gmap.panTo({ lat: lat, lng: lon }); if (gmap.getZoom() < 9) gmap.setZoom(12); return; }
-    if (lmarker) { lmarker.setLatLng([lat, lon]).addTo(lmap); lmap.setView([lat, lon], Math.max(lmap.getZoom(), 15)); return; }
+  function movePin(lat, lon, zoom) {
+    if (gmarker) { gmarker.position = { lat: lat, lng: lon }; if (zoom) { gmap.panTo({ lat: lat, lng: lon }); if (gmap.getZoom() < 15) gmap.setZoom(16); } return; }
+    if (lmarker) { lmarker.setLatLng([lat, lon]).addTo(lmap); if (zoom) lmap.setView([lat, lon], Math.max(lmap.getZoom(), 16)); return; }
     const pin = $("pm-pin");
     if (pin) { pin.removeAttribute("hidden"); pin.setAttribute("transform", "translate(" + px(lon) + " " + py(lat) + ")"); }
   }
 
-  // ---------- Address search
+  const escHtml = (t) => String(t).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  // ---------- Address search with suggestions
+  // Photon (OpenStreetMap, komoot) suggests streets, addresses and places as you type; Open-Meteo's
+  // place search is the fallback. Results near the current map view rank first.
+  const input = $("address"), list = $("address-list");
+  let suggestions = [], active = -1, typingTimer = 0, queryToken = 0, shownFor = "";
+  function mapCenter() {
+    if (lmap) { const c = lmap.getCenter(); return { lat: c.lat, lon: c.lng }; }
+    if (gmap) { const c = gmap.getCenter(); return { lat: c.lat(), lon: c.lng() }; }
+    return state.site ? { lat: state.site.lat, lon: state.site.lon } : DE_BILT;
+  }
+  function photon(q, signal) {
+    const c = mapCenter();
+    return fetch("https://photon.komoot.io/api/?limit=6&lang=en&q=" + encodeURIComponent(q) + "&lat=" + c.lat.toFixed(3) + "&lon=" + c.lon.toFixed(3), { signal: signal })
+      .then((r) => r.json())
+      .then((d) => (d.features || []).map(function (f) {
+        const p = f.properties || {}, g = f.geometry && f.geometry.coordinates;
+        const street = p.street ? p.street + (p.housenumber ? " " + p.housenumber : "") : "";
+        const main = p.name && p.name !== street ? p.name : street || p.city || p.name || "";
+        const sub = [p.name && street && p.name !== street ? street : "", p.postcode, p.city !== main ? p.city : "", p.country].filter(Boolean).join(", ");
+        return { main: main, sub: sub, lat: g && g[1], lon: g && g[0], label: [main, p.city !== main ? p.city : "", p.countrycode].filter(Boolean).join(", ") };
+      }).filter((x) => x.main && Number.isFinite(x.lat)));
+  }
+  function openMeteoPlaces(q, signal) {
+    return fetch(CFG.geocodeApi + "?count=6&language=en&name=" + encodeURIComponent(q), { signal: signal }).then((r) => r.json()).then((d) => (d.results || []).map((g) => ({
+      main: g.name, sub: [g.admin1, g.country].filter(Boolean).join(", "), lat: g.latitude, lon: g.longitude, label: g.name + (g.country_code ? ", " + g.country_code : "")
+    })));
+  }
+  // Street-level matches (Photon) first, then towns (Open-Meteo), without near-duplicates.
+  const inEurope = (x) => x.lat > 34 && x.lat < 72 && x.lon > -25 && x.lon < 45;
+  function merge(addresses, places) {
+    const out = addresses.slice();
+    // Towns: European ones first, otherwise in the service's own order (by size).
+    places.slice().sort((a, b) => inEurope(b) - inEurope(a)).forEach(function (p) {
+      if (!out.some((o) => Math.abs(o.lat - p.lat) < 0.02 && Math.abs(o.lon - p.lon) < 0.02 && o.main === p.main)) out.push(p);
+    });
+    return out.slice(0, 6);
+  }
+  // Calls onUpdate(items, done) as each service answers. Returns a function that cancels the search.
+  function lookupLive(q, onUpdate) {
+    const ctrl = window.AbortController ? new AbortController() : null, signal = ctrl ? ctrl.signal : undefined;
+    let addresses = null, places = null, finished = 0, cancelled = false;
+    const update = function () { finished++; if (!cancelled) onUpdate(merge(addresses || [], places || []), finished === 2); };
+    photon(q, signal).then((r) => { addresses = r; }, () => { addresses = []; }).then(update);
+    openMeteoPlaces(q, signal).then((r) => { places = r; }, () => { places = []; }).then(update);
+    return function () { cancelled = true; if (ctrl) ctrl.abort(); };
+  }
+  // For Enter/Find without a suggestion: wait for both services, or 1.5 s after the first answer.
+  function lookup(q) {
+    return new Promise(function (resolve) {
+      let best = [], timer = 0;
+      lookupLive(q, function (items, done) {
+        if (items.length) best = items;
+        if (done) { clearTimeout(timer); resolve(best); }
+        else if (items.length && !timer) timer = setTimeout(function () { resolve(best); }, 1500);
+      });
+    });
+  }
+  function showList(items, emptyText) {
+    suggestions = items; active = -1;
+    if (!items.length && !emptyText) { closeList(); return; }
+    list.innerHTML = items.length
+      ? items.map((it, i) => '<li role="option" id="sugg-' + i + '" aria-selected="false" data-i="' + i + '"><span class="s-main">' + escHtml(it.main) + '</span>' + (it.sub ? '<span class="s-sub">' + escHtml(it.sub) + "</span>" : "") + "</li>").join("")
+      : '<li class="s-empty" role="option" aria-disabled="true">' + escHtml(emptyText) + "</li>";
+    list.hidden = false; input.setAttribute("aria-expanded", "true");
+  }
+  function closeList() { list.hidden = true; input.setAttribute("aria-expanded", "false"); input.removeAttribute("aria-activedescendant"); active = -1; }
+  function highlight(i) {
+    active = i;
+    list.querySelectorAll("[role=option]").forEach((li, k) => li.setAttribute("aria-selected", String(k === i)));
+    if (i >= 0) { input.setAttribute("aria-activedescendant", "sugg-" + i); const li = $("sugg-" + i); if (li) li.scrollIntoView({ block: "nearest" }); }
+  }
+  function choose(it) {
+    closeList();
+    input.value = it.label;
+    setPlace(it.lat, it.lon, it.label, { zoom: true });
+  }
+  let cancelSearch = function () {};
+  input.addEventListener("input", function () {
+    clearTimeout(typingTimer);
+    cancelSearch();
+    const q = input.value.trim();
+    if (q.length < 2) { closeList(); return; }
+    const t = ++queryToken;
+    typingTimer = setTimeout(function () {
+      // Keep the list while the visitor keeps typing the same thing; otherwise don't show old matches.
+      if (!suggestions.length || q.toLowerCase().indexOf(shownFor.toLowerCase()) !== 0) showList([], "Searching…");
+      cancelSearch = lookupLive(q, function (items, done) {
+        if (t !== queryToken || input.value.trim() !== q) return;
+        if (items.length) { showList(items, ""); shownFor = q; }
+        else if (done) showList([], "No matches. Try a town name, or click the map.");
+      });
+    }, 220);
+  });
+  input.addEventListener("keydown", function (e) {
+    if (list.hidden || !suggestions.length) return;
+    if (e.key === "ArrowDown") { e.preventDefault(); highlight((active + 1) % suggestions.length); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); highlight((active - 1 + suggestions.length) % suggestions.length); }
+    else if (e.key === "Enter" && active >= 0) { e.preventDefault(); choose(suggestions[active]); }
+    else if (e.key === "Escape") { e.preventDefault(); closeList(); }
+  });
+  // pointerdown (not click) so the choice lands before the input loses focus
+  list.addEventListener("pointerdown", function (e) {
+    const li = e.target.closest("li[data-i]"); if (!li) return;
+    e.preventDefault(); choose(suggestions[+li.dataset.i]);
+  });
+  input.addEventListener("blur", function () { setTimeout(closeList, 120); });
   $("build-search").addEventListener("submit", function (e) {
     e.preventDefault();
-    const q = $("address").value.trim();
+    const q = input.value.trim();
     if (!q) return;
+    if (!list.hidden && suggestions.length) { choose(suggestions[Math.max(0, active)]); return; }
+    cancelSearch();
     setStatus("Looking up “" + q + "”…");
     const local = EXAMPLES.find((x) => x.name.toLowerCase().indexOf(q.toLowerCase()) === 0);
-    if (gmap && window.google) {
-      new google.maps.Geocoder().geocode({ address: q }, function (res, status) {
-        if (status === "OK" && res[0]) { const l = res[0].geometry.location; setPlace(l.lat(), l.lng(), res[0].formatted_address); }
-        else setStatus("We couldn't find that place. Try a town name, or click the map.");
-      });
-      return;
-    }
-    fetch(CFG.geocodeApi + "?count=1&language=en&name=" + encodeURIComponent(q))
-      .then((r) => r.json())
-      .then(function (d) {
-        const g = d.results && d.results[0];
-        if (!g) throw new Error("none");
-        setPlace(g.latitude, g.longitude, g.name + (g.country_code ? ", " + g.country_code : ""));
-      })
-      .catch(function () {
-        if (local) setPlace(local.lat, local.lon, local.name);
-        else setStatus("We couldn't look that up here. Click the map, or try one of the example towns.");
-      });
+    lookup(q).then(function (items) {
+      if (items.length) choose(items[0]);
+      else if (local) setPlace(local.lat, local.lon, local.name, { zoom: true });
+      else setStatus("We couldn't find that place. Try a town name, or click the map.");
+    }).catch(function () {
+      if (local) setPlace(local.lat, local.lon, local.name, { zoom: true });
+      else setStatus("We couldn't look that up here. Click the map, or try one of the example towns.");
+    });
+  });
+
+  // ---------- Use my location
+  $("locate").addEventListener("click", function () {
+    if (!navigator.geolocation) { setStatus("Your browser can't share its location. Search or click the map instead."); return; }
+    setStatus("Finding your location…");
+    navigator.geolocation.getCurrentPosition(function (pos) {
+      setPlace(pos.coords.latitude, pos.coords.longitude, "Your location", { zoom: true });
+    }, function (err) {
+      setStatus(err.code === 1 ? "Location was not shared. Search or click the map instead." : "Couldn't find your location. Search or click the map instead.");
+    }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
   });
 
   // ---------- Weather
@@ -224,8 +345,20 @@
     });
     return { t: acc.t / ws, a: acc.a / ws, w: acc.w / ws, wa: acc.wa / ws, rain: acc.rain / ws, soil: near.soil, near: near, exact: nd < 0.1 };
   }
+  function climateWindowEnd() { const end = new Date(); end.setUTCDate(end.getUTCDate() - 7); return end; }
+  // Live De Bilt reference, cached in the browser for a month (per data window).
+  function loadReference() {
+    if (reference) return Promise.resolve(reference);
+    const key = "beestraw-ref-v2-" + climateWindowEnd().toISOString().slice(0, 7);
+    try { const c = JSON.parse(localStorage.getItem(key) || "null"); if (c && c.months) { reference = c; return Promise.resolve(c); } } catch (e) { /* storage blocked */ }
+    return fetchClimate(DE_BILT.lat, DE_BILT.lon).then(function (c) {
+      reference = { months: c.months, soilData: c.soilData };
+      try { localStorage.setItem(key, JSON.stringify(reference)); } catch (e) { /* storage blocked */ }
+      return reference;
+    });
+  }
   function fetchClimate(lat, lon) {
-    const end = new Date(); end.setUTCDate(end.getUTCDate() - 7);
+    const end = climateWindowEnd();
     const start = new Date(end); start.setUTCFullYear(end.getUTCFullYear() - (CFG.weatherYears || 5));
     const iso = (d) => d.toISOString().slice(0, 10);
     const base = CFG.weatherApi + "?latitude=" + lat.toFixed(3) + "&longitude=" + lon.toFixed(3) + "&start_date=" + iso(start) + "&end_date=" + iso(end) + "&timezone=UTC&daily=";
@@ -233,51 +366,142 @@
     const get = (vars) => fetch(base + vars).then((r) => r.json()).then(function (d) { if (d.error || !d.daily) throw new Error(d.reason || "no data"); return d.daily; });
     return get(withSoil).catch(() => get("temperature_2m_mean,precipitation_sum")).then(climateFromDaily);
   }
-  // Daily series → 12 monthly {t, wet} + summary. Wet day: topsoil moisture ≥ 0.25 m³/m³ [assumed],
-  // or, without soil data, ≥ 2 mm of rain over the last 3 days [assumed].
+  // Daily series → 12 monthly {t, wet} + summary.
+  // Wet day [assumed]: topsoil moisture in the upper half of this place's own usual range
+  // (between its 5th and 95th percentile over the years fetched). A fixed threshold mostly reflected the
+  // weather model's soil type: 0.25 m³/m³ marked De Bilt wet on 100 % of days and Munich on 3 %, although
+  // Munich had more rain (Open-Meteo, Jul–Oct 2026). Without soil data: ≥ 2 mm of rain over the last 3 days.
+  const WET_POSITION = 0.5;
+  function percentile(values, q) {
+    const v = values.filter((x) => x != null).sort((a, b) => a - b);
+    if (!v.length) return null;
+    return v[Math.min(v.length - 1, Math.max(0, Math.round(q * (v.length - 1))))];
+  }
   function climateFromDaily(d) {
     const months = Array.from({ length: 12 }, () => ({ t: 0, wet: 0, n: 0 }));
     let rain = 0; const years = d.time.length / 365.25;
-    const soilT = d.soil_temperature_0_to_7cm_mean, soilM = d.soil_moisture_0_to_7cm_mean, air = d.temperature_2m_mean, p = d.precipitation_sum;
+    const soilT = d.soil_temperature_0_to_7cm_mean, air = d.temperature_2m_mean, p = d.precipitation_sum;
+    let soilM = d.soil_moisture_0_to_7cm_mean;
+    const lo = soilM ? percentile(soilM, 0.05) : null, hi = soilM ? percentile(soilM, 0.95) : null;
+    if (lo == null || hi == null || hi - lo < 0.01) soilM = null;
+    const wetFrom = soilM ? lo + WET_POSITION * (hi - lo) : null;
     for (let i = 0; i < d.time.length; i++) {
       const m = +d.time[i].slice(5, 7) - 1;
       const t = soilT && soilT[i] != null ? soilT[i] : air[i];
       if (t == null) continue;
       let wet;
-      if (soilM && soilM[i] != null) wet = soilM[i] >= 0.25 ? 1 : 0;
+      if (soilM && soilM[i] != null) wet = soilM[i] >= wetFrom ? 1 : 0;
       else wet = ((p[i] || 0) + (p[i - 1] || 0) + (p[i - 2] || 0)) >= 2 ? 1 : 0;
       months[m].t += t; months[m].wet += wet; months[m].n++;
       rain += p[i] || 0;
     }
     const out = months.map((x) => ({ t: x.n ? x.t / x.n : 0, wet: x.n ? x.wet / x.n : 0 }));
     const meanT = out.reduce((s, x) => s + x.t, 0) / 12, meanW = out.reduce((s, x) => s + x.wet, 0) / 12;
-    return { months: out, meanT: meanT, wetShare: meanW, rain: rain / years, soil: null, soilData: !!soilM };
+    return { months: out, meanT: meanT, wetShare: meanW, rain: rain / years, soil: null, soilData: !!soilM, wetFrom: wetFrom };
   }
 
   // ---------- Place → everything
   let placeToken = 0;
-  function setPlace(lat, lon, name) {
+  // opts.zoom: also move the map to the place (search, location, start). Clicks and drags leave the map still.
+  function setPlace(lat, lon, name, opts) {
     const token = ++placeToken;
     state.autoInstall = true;
-    movePin(lat, lon);
+    movePin(lat, lon, !!(opts && opts.zoom));
     state.site = { lat: lat, lon: lon, name: name || "Your pin" };
     $("site-name").textContent = state.site.name;
     $("site-coord").textContent = Math.abs(lat).toFixed(5) + "° " + (lat >= 0 ? "N" : "S") + " · " + Math.abs(lon).toFixed(5) + "° " + (lon >= 0 ? "E" : "W");
     loadFingerprint(lat, lon, token);
     setStatus("Reading weather for this spot…");
     $("flow-site").classList.add("on"); $("flow-preview").classList.add("on");
+    state.soil = null;
     fetchClimate(lat, lon).then(function (c) {
       if (token !== placeToken) return;
-      state.climate = c; state.source = "live";
-      if (!c.soil) c.soil = blendExample(lat, lon).soil + " (example)";
-      render();
+      // A pin at De Bilt is its own reference.
+      if (!reference && Math.abs(lat - DE_BILT.lat) < 0.01 && Math.abs(lon - DE_BILT.lon) < 0.01) reference = { months: c.months, soilData: c.soilData };
+      // Wait for the De Bilt reference, but never let it block the result.
+      return loadReference().catch(function () { return null; }).then(function () {
+        if (token !== placeToken) return;
+        state.climate = c; state.source = "live";
+        c.soil = soilText(lat, lon);
+        render();
+      });
     }).catch(function () {
       if (token !== placeToken) return;
       const b = blendExample(lat, lon);
-      state.climate = { months: exampleMonths(b), meanT: b.t, wetShare: exampleMonths(b).reduce((s, x) => s + x.wet, 0) / 12, rain: b.rain, soil: b.soil };
+      state.climate = { months: exampleMonths(b), meanT: b.t, wetShare: exampleMonths(b).reduce((s, x) => s + x.wet, 0) / 12, rain: b.rain, soil: soilText(lat, lon) };
       state.source = "example";
       render();
     });
+    loadSoil(lat, lon, token);
+  }
+
+  // ---------- Soil texture from SoilGrids (ISRIC, 250 m, topsoil 0–5 cm). Slow (often 20–40 s), so it fills in later.
+  // Shown for information; it does not change the decay estimate yet.
+  function usdaTexture(sand, silt, clay) {
+    if (silt + 1.5 * clay < 15) return "Sand";
+    if (silt + 2 * clay < 30) return "Loamy sand";
+    if ((clay >= 7 && clay < 20 && sand > 52) || (clay < 7 && silt < 50)) return "Sandy loam";
+    if (clay >= 7 && clay < 27 && silt >= 28 && silt < 50 && sand <= 52) return "Loam";
+    if ((silt >= 50 && clay >= 12 && clay < 27) || (silt >= 50 && silt < 80 && clay < 12)) return "Silt loam";
+    if (silt >= 80 && clay < 12) return "Silt";
+    if (clay >= 20 && clay < 35 && silt < 28 && sand > 45) return "Sandy clay loam";
+    if (clay >= 35 && sand > 45) return "Sandy clay";
+    if (clay >= 27 && clay < 40 && sand > 20) return "Clay loam";
+    if (clay >= 27 && clay < 40) return "Silty clay loam";
+    if (clay >= 40 && silt >= 40) return "Silty clay";
+    return "Clay";
+  }
+  function soilText(lat, lon) {
+    if (state.soil && state.soil.label) return state.soil.label;
+    if (state.soil && state.soil.loading) return "Reading soil map…";
+    return blendExample(lat, lon).soil + " (example)";
+  }
+  // Answers are remembered per ~1 km square; requests wait until the pin has stopped moving for a moment,
+  // to stay gentle on the free service.
+  let soilTimer = 0, soilCtrl = null;
+  function loadSoil(lat, lon, token) {
+    clearTimeout(soilTimer);
+    if (soilCtrl) { soilCtrl.abort(); soilCtrl = null; }
+    const key = "beestraw-soil-v1-" + lat.toFixed(2) + "," + lon.toFixed(2);
+    let cached = null;
+    try { cached = JSON.parse(localStorage.getItem(key) || "null"); } catch (e) { /* storage blocked */ }
+    if (cached) { state.soil = cached; return; }
+    state.soil = { loading: true };
+    const finish = function () {
+      if (token !== placeToken || !state.climate) return;
+      state.climate.soil = state.soil.label;
+      paintSiteCard();
+    };
+    soilTimer = setTimeout(function () {
+      if (token !== placeToken) return;
+      const url = "https://rest.isric.org/soilgrids/v2.0/properties/query?lon=" + lon.toFixed(4) + "&lat=" + lat.toFixed(4) +
+        "&property=clay&property=sand&property=silt&depth=0-5cm&value=mean";
+      const ctrl = window.AbortController ? new AbortController() : null;
+      soilCtrl = ctrl;
+      const timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, 60000);
+      fetch(url, ctrl ? { signal: ctrl.signal } : {}).then(function (r) {
+        if (!r.ok) throw new Error("soil service " + r.status);
+        return r.json();
+      }).then(function (d) {
+        if (token !== placeToken) return;
+        const v = {};
+        (d.properties && d.properties.layers || []).forEach(function (l) {
+          const m = l.depths && l.depths[0] && l.depths[0].values && l.depths[0].values.mean;
+          if (m != null) v[l.name] = m / ((l.unit_measure && l.unit_measure.d_factor) || 10);
+        });
+        if (v.clay == null || v.sand == null || v.silt == null) {
+          // Built-up areas and water are not on the soil map.
+          state.soil = { label: "Not on the soil map here · example: " + blendExample(lat, lon).soil, unmapped: true };
+        } else {
+          const k = 100 / (v.clay + v.sand + v.silt), clay = v.clay * k, sand = v.sand * k, silt = v.silt * k;
+          state.soil = { label: usdaTexture(sand, silt, clay) + " · " + Math.round(clay) + " % clay, " + Math.round(sand) + " % sand", clay: clay, sand: sand, silt: silt };
+        }
+        try { localStorage.setItem(key, JSON.stringify(state.soil)); } catch (e) { /* storage blocked */ }
+      }).catch(function () {
+        if (token !== placeToken) return;
+        state.soil = { label: "Soil map didn't answer · example: " + blendExample(lat, lon).soil };
+      }).then(function () { clearTimeout(timer); finish(); });
+    }, 1200);
   }
   function setStatus(t) { $("site-status").textContent = t; }
 
@@ -313,7 +537,7 @@
   }
 
   // ---------- Render site card + decay
-  function render() {
+  function paintSiteCard() {
     const c = state.climate;
     $("site-kv").innerHTML =
       "<dt>Rain</dt><dd>" + Math.round(c.rain) + " mm/yr</dd>" +
@@ -322,15 +546,23 @@
       "<dt>Soil</dt><dd></dd>";
     $("site-kv").lastElementChild.textContent = c.soil;
     setStatus(state.source === "live"
-      ? "Weather: Open-Meteo, last " + (CFG.weatherYears || 5) + " years" + (c.soilData ? ", with topsoil moisture." : ".")
+      ? "Weather: Open-Meteo, last " + (CFG.weatherYears || 5) + " years" + (c.soilData ? ", with topsoil moisture." : ".") +
+        (state.soil && state.soil.clay != null ? " Soil: SoilGrids (ISRIC), topsoil 0–5 cm." : state.soil && state.soil.loading ? " Soil map can take up to a minute." : "")
       : "Live weather isn't available here, so this uses an example climate for the region.");
+  }
+  function render() {
+    const c = state.climate;
+    paintSiteCard();
 
     if (state.autoInstall) {
       state.install = recommendedInstallMonth(c); state.autoInstall = false;
       $("install-month").value = String(state.install);
     }
     $("install-hint").textContent = "Suggested for your climate: install by " + when(phenology(c).install) + ".";
-    const H = calibration(state.install);
+    const H = calibration(state.install, state.source);
+    $("tune-cal").textContent = state.source === "live"
+      ? (reference ? "Compared with De Bilt weather from the same source, where the standard straw lets go at 13 months." : "Compared with an example De Bilt climate: live De Bilt weather couldn't be loaded.")
+      : "Compared with an example De Bilt climate.";
     const cum = cumulative(c.months, state.install, 24);
     const std = releaseMonth(cum, H);
     // Aim just past the dose at 13 months: in cold climates decay pauses over winter, so the fuse
@@ -581,7 +813,7 @@
     .catch(function () { return loadLeaflet().then(initLeaflet); })
     .then(addAlphaEarthLayer, initPreviewMap)
     .then(function () {
-    const e = EXAMPLES[0];
-    setPlace(e.lat, e.lon, e.name);
-  });
+      const e = EXAMPLES[0];
+      setPlace(e.lat, e.lon, e.name, { zoom: true });
+    });
 })();
