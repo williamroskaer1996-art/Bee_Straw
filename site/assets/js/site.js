@@ -42,6 +42,8 @@
     return c;
   }
 
+  window.BeeTiles = { drawTile: drawTile };
+
   // ---- Home mosaic
   const mosaic = document.getElementById("mosaic");
   if (mosaic) {
@@ -51,10 +53,6 @@
       mosaic.insertBefore(makeCanvas(big ? 220 : 110, big ? 220 : 110, k * 97 + 13, k % 3 === 0, cls), mosaic.querySelector(".bee-slot"));
     });
   }
-
-  // ---- Build: example site tile
-  const siteTile = document.getElementById("site-tile");
-  if (siteTile) drawTile(siteTile, 7, true);
 
   // ---- Community: example stories (not real people)
   const STORIES = [

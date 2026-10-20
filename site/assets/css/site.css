@@ -130,6 +130,40 @@ main { min-height: 60vh; }
 select { font: inherit; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--bg); color: var(--ink); width: 100%; }
 .decay-slot { aspect-ratio: 16 / 9; max-width: 100%; }
 
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.map { position: relative; aspect-ratio: 7 / 6; max-width: 100%; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--surface); }
+.map svg.pm { width: 100%; height: 100%; display: block; cursor: crosshair; }
+.pm-bg { fill: var(--surface); }
+.pm-grid line { stroke: var(--line-strong); stroke-width: 0.6; stroke-dasharray: 2 3; }
+.pm-grid text { fill: var(--muted); font: 9px var(--f-mono); }
+.pm-site circle { fill: var(--bg); stroke: var(--ink); stroke-width: 1.5; cursor: pointer; }
+.pm-site:focus-visible circle { stroke: var(--focus); stroke-width: 3; }
+#pm-pin { pointer-events: none; }
+.pm-stem { stroke: var(--ink); stroke-width: 2; }
+.pm-head { fill: var(--ink); }
+.pm-foot { fill: var(--ink); }
+.pm-note { position: absolute; right: 10px; top: 8px; max-width: calc(100% - 20px); margin: 0; font: 0.7rem var(--f-mono); color: var(--muted); background: color-mix(in srgb, var(--surface) 85%, transparent); padding: 2px 6px; border-radius: 4px; }
+.straw, .chart { width: 100%; height: auto; display: block; }
+.readout { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 0.92rem; }
+input[type=range] { width: 100%; accent-color: var(--ink); }
+.st-soil { fill: var(--line); opacity: 0.6; }
+.st-soil-line { stroke: var(--muted); stroke-width: 1; }
+.st-lab { fill: var(--muted); font: 10px var(--f-mono); }
+.st-lab.accent, .ch-lab.strong { fill: var(--ink); font-weight: 500; }
+.st-part { fill: none; stroke: var(--ink); stroke-width: 2; }
+.st-tube { fill: var(--bg); stroke: var(--ink); stroke-width: 2; }
+.st-bore { stroke: var(--line-strong); stroke-width: 1; stroke-dasharray: 2 3; }
+.st-fuse { fill: var(--bg); stroke: var(--ink); }
+.st-gyroid { fill: none; stroke: var(--ink); }
+.ch-grid { stroke: var(--line); stroke-width: 1; }
+.ch-lab { fill: var(--muted); font: 9px var(--f-mono); }
+.ch-season { fill: var(--surface); stroke: none; }
+.ch-must { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+.ch-rel { stroke: var(--ink); stroke-width: 1.2; }
+.ch-area { fill: var(--ink); opacity: 0.07; }
+.ch-line { fill: none; stroke: var(--ink); stroke-width: 2; }
+.ch-dot { fill: var(--bg); stroke: var(--ink); stroke-width: 2; }
+
 /* Community */
 .feedhead { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; align-items: end; }
 .stories { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 20px; }
