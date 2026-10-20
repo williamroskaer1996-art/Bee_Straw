@@ -202,12 +202,18 @@
         <a class="btn secondary" href="https://github.com/williamroskaer1996-art/Bee_Straw/discussions" target="_blank" rel="noopener">Questions on GitHub</a>
       </div>
     </div>
-    <div class="build-grid" style="align-items:center">
-      <div class="slot map-slot">Map of straws in the ground across Europe.<br>Locations rounded to about 1 km.</div>
-      <div class="section" style="gap:12px">
+    <div class="build-grid" style="align-items:start">
+      <div class="map" id="community-map"></div>
+      <div class="section" style="gap:14px">
         <h2>Straws in the ground</h2>
-        <p class="muted">Each dot is a story. Filter by stage to see what's happening near you.</p>
-        <div class="flowbar"><span class="on">All</span><span>Printing</span><span>Installed</span><span>Bees seen</span><span>Released</span></div>
+        <p class="muted">Each dot is a story. Tap one to follow it from print to the day it's gone.</p>
+        <div class="chips" id="community-filters" role="group" aria-label="Filter by stage"></div>
+        <p class="mono muted" id="story-count"></p>
+        <div class="card">
+          <span class="label">Already have a straw in the ground?</span>
+          <p class="muted" style="font-size:.9rem">A check-in takes three taps and an optional photo. Every one helps us predict decay better for places like yours.</p>
+          <button class="btn" type="button" data-checkin>Add a check-in</button>
+        </div>
       </div>
     </div>
     <div class="section" style="gap:12px">
@@ -238,8 +244,25 @@
   </div>
 </dialog>
 
+<dialog class="sheet" id="story" aria-labelledby="story-title">
+  <div class="sheet-body"><button class="btn small secondary sheet-close" type="button" data-close>Close</button><div id="story-body"></div></div>
+</dialog>
+
+<dialog class="sheet" id="checkin" aria-labelledby="checkin-title">
+  <form class="sheet-body" id="checkin-form">
+    <button class="btn small secondary sheet-close" type="button" data-close>Close</button>
+    <span class="label">Check-in</span>
+    <h2 id="checkin-title">How is your straw doing?</h2>
+    <div id="checkin-qs" style="display:grid;gap:14px"></div>
+    <div class="q"><label for="checkin-photo" class="muted" style="font-size:.9rem">Photo (optional)</label><input id="checkin-photo" type="file" accept="image/*"><div id="checkin-photo-preview" class="photo-preview"></div></div>
+    <div class="q"><label for="checkin-note" class="muted" style="font-size:.9rem">Anything else? (optional)</label><input id="checkin-note" type="text" placeholder="e.g. lots of bees after the rain"></div>
+    <button class="btn" type="submit">Save check-in</button>
+  </form>
+</dialog>
+
 <script src="assets/js/config.js"></script>
 <script src="assets/js/site.js"></script>
 <script src="assets/js/build.js"></script>
+<script src="assets/js/community.js"></script>
 </body>
 </html>

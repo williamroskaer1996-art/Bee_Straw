@@ -96,34 +96,6 @@
     document.getElementById("hiw-weather").innerHTML = w;
   }
 
-  // ---- Community: example stories (not real people)
-  const STORIES = [
-    { who: "Anna · Utrecht, NL", text: "Printed it on my Prusa, first try", stage: 2, when: "Month 1", seed: 3 },
-    { who: "Jonas · Aarhus, DK", text: "First mud caps this morning", stage: 3, when: "Month 3", seed: 8 },
-    { who: "Sofie · Gent, BE", text: "Fuse looks half gone at month 6", stage: 5, when: "Month 6", seed: 15 },
-    { who: "Luca · Bologna, IT", text: "Released at month 10, earlier than predicted", stage: 7, when: "Month 10", seed: 22 },
-    { who: "Marta · Kraków, PL", text: "Installed facing south-east", stage: 1, when: "Week 1", seed: 31 },
-    { who: "Erik · Uppsala, SE", text: "Still standing after a hard winter", stage: 5, when: "Month 7", seed: 40 }
-  ];
-  const storyList = document.getElementById("stories");
-  if (storyList) {
-    STORIES.forEach(function (s) {
-      const el = document.createElement("article");
-      el.className = "story";
-      let bars = "";
-      for (let k = 0; k < 8; k++) bars += '<i class="' + (k < s.stage ? "done" : k === s.stage ? "now" : "") + '"></i>';
-      el.innerHTML =
-        '<div class="body"><div class="meta"><span></span><span class="mono"></span></div><h3></h3>' +
-        '<div class="timeline" role="img" aria-label="Story progress">' + bars + "</div>" +
-        '<div class="meta"><span>Printed · Installed · Bees · M3 · M6 · M11 · Released · Gone</span></div></div>';
-      el.querySelector(".meta span").textContent = s.who;
-      el.querySelector(".meta .mono").textContent = s.when;
-      el.querySelector("h3").textContent = s.text;
-      el.insertBefore(makeCanvas(320, 200, s.seed, false), el.firstChild);
-      storyList.appendChild(el);
-    });
-  }
-
   // ---- Sign-in dialog (front end only; accounts arrive in a later slice)
   const dialog = document.getElementById("signin");
   document.querySelectorAll("[data-signin]").forEach(function (b) {
