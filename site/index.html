@@ -20,7 +20,7 @@
     <a href="#build">Build your straw</a>
     <a href="#community">Community</a>
   </nav>
-  <button class="btn small secondary signin-btn" type="button" data-signin="">Sign in</button>
+  <button class="btn small secondary signin-btn" type="button">Sign in</button>
 </div></header>
 
 <main class="wrap">
@@ -173,7 +173,9 @@
         </div>
         <div class="card">
           <span class="label">Get your straw</span>
-          <button class="btn" type="button" data-signin="Sign in to download your print file and install guide.">Download print file</button>
+          <button class="btn" type="button" data-signin="Sign in to download your print file and install guide." data-action="download">Download print file</button>
+          <button class="btn secondary" type="button" data-signin="Sign in to start your Straw Story." data-action="create-story">Start your Straw Story</button>
+          <p class="muted" id="get-status" role="status" style="font-size:.85rem"></p>
           <a class="btn secondary" href="#guide">See your install guide</a>
           <p class="muted" style="font-size:.85rem">The install guide is made for your pin: when to install, what to look for and when, and what happens at the end.</p>
         </div>
@@ -198,7 +200,7 @@
         <p class="muted">Every straw has a story, from the first print to the day it's gone. Each one teaches the model about a new place.</p>
       </div>
       <div class="btn-row">
-        <button class="btn" type="button" data-signin="Sign in to start your Straw Story.">Start your story</button>
+        <a class="btn" href="#build">Start your story</a>
         <a class="btn secondary" href="https://github.com/williamroskaer1996-art/Bee_Straw/discussions" target="_blank" rel="noopener">Questions on GitHub</a>
       </div>
     </div>
@@ -217,7 +219,7 @@
       </div>
     </div>
     <div class="section" style="gap:12px">
-      <span class="label">Latest stories · examples</span>
+      <span class="label" id="stories-label">Latest stories · examples</span>
       <div class="stories" id="stories"></div>
     </div>
   </section>
@@ -257,11 +259,13 @@
     <div class="q"><label for="checkin-photo" class="muted" style="font-size:.9rem">Photo (optional)</label><input id="checkin-photo" type="file" accept="image/*"><div id="checkin-photo-preview" class="photo-preview"></div></div>
     <div class="q"><label for="checkin-note" class="muted" style="font-size:.9rem">Anything else? (optional)</label><input id="checkin-note" type="text" placeholder="e.g. lots of bees after the rain"></div>
     <button class="btn" type="submit">Save check-in</button>
+    <p class="muted" id="checkin-status" role="status" style="font-size:.85rem"></p>
   </form>
 </dialog>
 
 <script src="assets/js/config.js"></script>
 <script src="assets/js/site.js"></script>
+<script src="assets/js/auth.js"></script>
 <script src="assets/js/build.js"></script>
 <script src="assets/js/community.js"></script>
 </body>

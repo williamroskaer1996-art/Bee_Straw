@@ -77,6 +77,31 @@
   $("community-map").addEventListener("click", (e) => { const d = e.target.closest(".cm-dot"); if (d) openStory(d.dataset.id); });
   $("community-map").addEventListener("keydown", (e) => { const d = e.target.closest(".cm-dot"); if (d && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openStory(d.dataset.id); } });
 
+  // ---------- Data: real stories from Supabase when accounts are on, otherwise the examples
+  const AUTH = window.BeeAuth || { enabled: false, onChange: function () {} };
+  const fmtDate = (iso) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  const photoUrl = (path) => (path && AUTH.client ? AUTH.client.storage.from("checkin-photos").getPublicUrl(path).data.publicUrl : null);
+  function fromExample(s) {
+    const last = s.entries[s.entries.length - 1];
+    return Object.assign({}, s, { example: true, lastWhen: last.when, lastText: last.text, photo: null, checkinCount: s.entries.length, commentCount: s.comments.length });
+  }
+  function fromRow(r) {
+    return { id: r.id, who: r.display_name || "Beekeeper", place: r.place_name || "Somewhere in Europe", lat: +r.lat, lon: +r.lon, printer: r.printer || "",
+      stage: r.stage, predicted: r.predicted_release_months != null ? +r.predicted_release_months : null, actual: r.actual_release_months != null ? +r.actual_release_months : null,
+      lastWhen: fmtDate(r.last_at || r.created_at), lastText: r.last_note || STAGES[r.stage], photo: photoUrl(r.last_photo),
+      checkinCount: +r.checkin_count, commentCount: +r.comment_count, example: false, entries: null, comments: null };
+  }
+  let stories = STORIES.map(fromExample);
+  let showingExamples = true;
+  function loadFeed() {
+    if (!AUTH.client) { renderFeed(); return; }
+    AUTH.client.from("story_feed").select("*").order("created_at", { ascending: false }).limit(200).then(function (r) {
+      if (r.error || !r.data || !r.data.length) { stories = STORIES.map(fromExample); showingExamples = true; }
+      else { stories = r.data.map(fromRow); showingExamples = false; }
+      renderFeed();
+    });
+  }
+
   // ---------- Feed
   let filter = "all";
   function timeline(stage) {
@@ -84,16 +109,16 @@
     for (let k = 1; k < STAGES.length; k++) t += '<i class="' + (k < stage ? "done" : k === stage ? "now" : "") + '"></i>';
     return '<div class="timeline" role="img" aria-label="Stage: ' + STAGES[stage] + '">' + t + "</div>";
   }
+  const photoBox = (cls, url) => url ? '<div class="' + cls + '"><img src="' + esc(url) + '" alt="" loading="lazy"></div>' : '<div class="' + cls + '"><span class="mono">photo</span></div>';
   function renderFeed() {
-    const list = STORIES.filter(FILTERS.find((f) => f.id === filter).test);
-    $("stories").innerHTML = list.length ? list.map((s) => {
-      const last = s.entries[s.entries.length - 1];
-      return '<button class="story" type="button" data-id="' + s.id + '">' +
-        '<div class="story-photo"><span class="mono">photo</span></div>' +
-        '<div class="body"><div class="meta"><span>' + esc(s.who + " · " + s.place) + '</span><span class="mono">' + esc(last.when) + "</span></div>" +
-        "<h3>" + esc(last.text) + "</h3>" + timeline(s.stage) +
-        '<div class="meta"><span>' + STAGES[s.stage] + "</span><span>" + s.entries.length + (s.entries.length === 1 ? " check-in" : " check-ins") + (s.comments.length ? " · " + s.comments.length + " comment" + (s.comments.length > 1 ? "s" : "") : "") + "</span></div></div></button>";
-    }).join("") : '<p class="muted">No stories at this stage yet.</p>';
+    const list = stories.filter(FILTERS.find((f) => f.id === filter).test);
+    $("stories-label").textContent = showingExamples ? "Latest stories · examples" : "Latest stories";
+    $("stories").innerHTML = list.length ? list.map((s) =>
+      '<button class="story" type="button" data-id="' + esc(s.id) + '">' + photoBox("story-photo", s.photo) +
+      '<div class="body"><div class="meta"><span>' + esc(s.who + " · " + s.place) + '</span><span class="mono">' + esc(s.lastWhen) + "</span></div>" +
+      "<h3>" + esc(s.lastText) + "</h3>" + timeline(s.stage) +
+      '<div class="meta"><span>' + STAGES[s.stage] + "</span><span>" + s.checkinCount + (s.checkinCount === 1 ? " check-in" : " check-ins") + (s.commentCount ? " · " + s.commentCount + " comment" + (s.commentCount > 1 ? "s" : "") : "") + "</span></div></div></button>"
+    ).join("") : '<p class="muted">No stories at this stage yet.</p>';
     drawMap(list);
     $("story-count").textContent = list.length + (list.length === 1 ? " story" : " stories");
   }
@@ -108,40 +133,89 @@
 
   // ---------- Story view
   const storyDlg = $("story");
+  function loadDetails(s) {
+    if (s.example || s.entries) return Promise.resolve(s);
+    return Promise.all([
+      AUTH.client.from("checkins").select("stage, note, photo_path, created_at").eq("straw_id", s.id).order("created_at"),
+      AUTH.client.from("comments").select("body, created_at, profiles(display_name)").eq("straw_id", s.id).order("created_at")
+    ]).then(function (r) {
+      s.entries = (r[0].data || []).map((c) => ({ stage: c.stage, when: fmtDate(c.created_at), text: c.note || STAGES[c.stage], photo: photoUrl(c.photo_path) }));
+      s.comments = (r[1].data || []).map((c) => ({ who: (c.profiles && c.profiles.display_name) || "Beekeeper", text: c.body }));
+      return s;
+    });
+  }
   function openStory(id) {
-    const s = STORIES.find((x) => x.id === id); if (!s) return;
-    const timing = s.actual != null
-      ? "<dt>Predicted release</dt><dd>" + s.predicted.toFixed(1) + " months</dd><dt>Actual release</dt><dd>" + s.actual.toFixed(1) + " months</dd><dt>Difference</dt><dd>" + (s.actual - s.predicted > 0 ? "+" : "") + (s.actual - s.predicted).toFixed(1) + " months</dd>"
-      : "<dt>Predicted release</dt><dd>" + s.predicted.toFixed(1) + " months</dd><dt>Actual release</dt><dd>not yet</dd>";
-    $("story-body").innerHTML =
-      '<div class="story-head"><div><span class="label">Straw Story</span><h2 id="story-title">' + esc(s.who + " · " + s.place) + '</h2><p class="muted">' + esc(s.printer) + " · " + STAGES[s.stage] + "</p></div></div>" +
-      timeline(s.stage) +
-      '<dl class="kv">' + timing + "</dl>" +
-      '<p class="muted" style="font-size:.85rem">Every released straw tells us how fast that soil really is. This is how the model learns.</p>' +
-      '<ol class="entries">' + s.entries.slice().reverse().map((en) =>
-        '<li><div class="entry-photo"><span class="mono">photo</span></div><div><div class="meta"><strong>' + STAGES[en.stage] + '</strong><span class="mono">' + esc(en.when) + "</span></div><p>" + esc(en.text) + "</p></div></li>").join("") + "</ol>" +
-      '<div class="comments"><h3>Comments</h3>' + (s.comments.length ? s.comments.map((c) => "<p><strong>" + esc(c.who) + "</strong> " + esc(c.text) + "</p>").join("") : '<p class="muted">No comments yet.</p>') +
-      '<form class="comment-form" id="comment-form"><label class="sr-only" for="comment-text">Write a comment</label><input id="comment-text" type="text" placeholder="Write a comment"><button class="btn small" type="submit">Post</button></form></div>';
-    $("comment-form").addEventListener("submit", (e) => { e.preventDefault(); askSignIn("Sign in to comment on Straw Stories."); });
+    const s = stories.find((x) => x.id === id); if (!s) return;
+    $("story-body").innerHTML = '<p class="muted">Loading story…</p>';
     storyDlg.showModal();
+    loadDetails(s).then(renderStory);
+  }
+  function renderStory(s) {
+    const pred = s.predicted != null ? s.predicted.toFixed(1) + " months" : "–";
+    const timing = s.actual != null && s.predicted != null
+      ? "<dt>Predicted release</dt><dd>" + pred + "</dd><dt>Actual release</dt><dd>" + s.actual.toFixed(1) + " months</dd><dt>Difference</dt><dd>" + (s.actual - s.predicted > 0 ? "+" : "") + (s.actual - s.predicted).toFixed(1) + " months</dd>"
+      : "<dt>Predicted release</dt><dd>" + pred + "</dd><dt>Actual release</dt><dd>" + (s.actual != null ? s.actual.toFixed(1) + " months" : "not yet") + "</dd>";
+    $("story-body").innerHTML =
+      '<div class="story-head"><div><span class="label">Straw Story' + (s.example ? " · example" : "") + '</span><h2 id="story-title">' + esc(s.who + " · " + s.place) + '</h2><p class="muted">' + esc((s.printer ? s.printer + " · " : "") + STAGES[s.stage]) + "</p></div></div>" +
+      timeline(s.stage) + '<dl class="kv">' + timing + "</dl>" +
+      '<p class="muted" style="font-size:.85rem">Every released straw tells us how fast that soil really is. This is how the model learns.</p>' +
+      '<ol class="entries">' + (s.entries.length ? s.entries.slice().reverse().map((en) =>
+        "<li>" + photoBox("entry-photo", en.photo) + '<div><div class="meta"><strong>' + STAGES[en.stage] + '</strong><span class="mono">' + esc(en.when) + "</span></div><p>" + esc(en.text) + "</p></div></li>").join("") : '<li class="muted">No check-ins yet.</li>') + "</ol>" +
+      '<div class="comments"><h3>Comments</h3><div id="comment-list">' + (s.comments.length ? s.comments.map((c) => "<p><strong>" + esc(c.who) + "</strong> " + esc(c.text) + "</p>").join("") : '<p class="muted">No comments yet.</p>') + "</div>" +
+      '<form class="comment-form" id="comment-form"><label class="sr-only" for="comment-text">Write a comment</label><input id="comment-text" type="text" maxlength="1000" placeholder="Write a comment"><button class="btn small" type="submit">Post</button></form><p class="muted" id="comment-status" role="status" style="font-size:.85rem"></p></div>';
+    $("comment-form").addEventListener("submit", function (e) {
+      e.preventDefault();
+      const text = $("comment-text").value.trim(); if (!text) return;
+      if (s.example) { $("comment-status").textContent = "This is an example story, so comments can't be added here."; return; }
+      AUTH.require("Sign in to comment on Straw Stories.", function () {
+        AUTH.client.from("comments").insert({ straw_id: s.id, body: text }).then(function (r) {
+          if (r.error) { $("comment-status").textContent = "Couldn't post: " + r.error.message; return; }
+          s.comments = null; s.entries = null; s.commentCount++;
+          loadDetails(s).then(renderStory); renderFeed();
+        });
+      });
+    });
   }
   storyDlg.querySelector("[data-close]").addEventListener("click", () => storyDlg.close());
   storyDlg.addEventListener("click", (e) => { if (e.target === storyDlg) storyDlg.close(); });
+  window.BeeCommunity = { openStory: function (id) { loadFeedThen(function () { openStory(id); }); } };
+  function loadFeedThen(cb) {
+    if (!AUTH.client) { cb(); return; }
+    AUTH.client.from("story_feed").select("*").order("created_at", { ascending: false }).limit(200).then(function (r) {
+      if (!r.error && r.data && r.data.length) { stories = r.data.map(fromRow); showingExamples = false; }
+      renderFeed(); cb();
+    });
+  }
 
-  // ---------- Check-in form (three taps + optional photo)
+  // ---------- Check-in form (what's happening + three taps + optional photo)
   const checkDlg = $("checkin");
   const QUESTIONS = [
     { id: "bees", q: "Bees going in and out?", a: ["Yes", "Not yet", "Not sure"] },
     { id: "cap", q: "Mud cap on the entrance?", a: ["Yes", "No", "Holes in it"] },
     { id: "stand", q: "Is it still standing?", a: ["Upright", "Leaning", "Fallen"] }
   ];
+  let myStraws = [];
   function openCheckin() {
-    $("checkin-qs").innerHTML = QUESTIONS.map((q) =>
-      '<fieldset class="q"><legend>' + q.q + '</legend><div class="chips">' +
-      q.a.map((a, i) => '<label class="chip"><input type="radio" name="' + q.id + '" value="' + esc(a) + '"' + (i === 0 ? "" : "") + "><span>" + a + "</span></label>").join("") + "</div></fieldset>").join("");
-    $("checkin-photo-preview").innerHTML = "";
-    $("checkin-photo").value = "";
+    const chips = (name, opts) => '<div class="chips">' + opts.map((o) => '<label class="chip"><input type="radio" name="' + name + '" value="' + esc(o.v) + '"><span>' + esc(o.l) + "</span></label>").join("") + "</div>";
+    $("checkin-qs").innerHTML =
+      '<div class="q" id="checkin-straw-row" hidden><label for="checkin-straw" class="muted" style="font-size:.9rem">Which straw?</label><select id="checkin-straw"></select></div>' +
+      '<fieldset class="q"><legend>What’s happening?</legend>' + chips("stage", STAGES.slice(1).map((l, i) => ({ v: String(i + 1), l: l }))) + "</fieldset>" +
+      QUESTIONS.map((q) => '<fieldset class="q"><legend>' + q.q + "</legend>" + chips(q.id, q.a.map((a) => ({ v: a, l: a }))) + "</fieldset>").join("");
+    $("checkin-photo-preview").innerHTML = ""; $("checkin-photo").value = ""; $("checkin-note").value = ""; $("checkin-status").textContent = "";
+    if (AUTH.user && AUTH.client) loadMyStraws();
     checkDlg.showModal();
+  }
+  function loadMyStraws() {
+    return AUTH.client.from("straws").select("id, place_name, created_at").eq("user_id", AUTH.user.id).order("created_at", { ascending: false }).then(function (r) {
+      myStraws = r.data || [];
+      const row = $("checkin-straw-row");
+      if (!row) return;
+      if (myStraws.length > 1) {
+        row.hidden = false;
+        $("checkin-straw").innerHTML = myStraws.map((x) => '<option value="' + x.id + '">' + esc((x.place_name || "My straw") + " · " + fmtDate(x.created_at)) + "</option>").join("");
+      }
+      if (!myStraws.length) $("checkin-status").textContent = "You don't have a straw yet. Start your story on the Build page first.";
+    });
   }
   $("checkin-photo").addEventListener("change", (e) => {
     const f = e.target.files && e.target.files[0]; const box = $("checkin-photo-preview");
@@ -149,16 +223,59 @@
     if (!f || !f.type.startsWith("image/")) return;
     const img = document.createElement("img"); img.alt = "Your photo"; img.src = URL.createObjectURL(f); box.appendChild(img);
   });
-  $("checkin-form").addEventListener("submit", (e) => { e.preventDefault(); checkDlg.close(); askSignIn("Sign in to save your check-in to your Straw Story."); });
+  // Shrink photos to at most 1600 px before upload.
+  function shrink(file) {
+    return new Promise(function (resolve) {
+      const img = new Image();
+      img.onload = function () {
+        const k = Math.min(1, 1600 / Math.max(img.width, img.height));
+        const c = document.createElement("canvas"); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        c.toBlob(resolve, "image/jpeg", 0.85);
+      };
+      img.onerror = function () { resolve(file); };
+      img.src = URL.createObjectURL(file);
+    });
+  }
+  $("checkin-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    const form = e.target, val = (n) => { const x = form.querySelector('input[name="' + n + '"]:checked'); return x ? x.value : null; };
+    const stage = val("stage");
+    if (!stage) { $("checkin-status").textContent = "Pick what's happening first."; return; }
+    const data = { stage: +stage, bees: val("bees"), cap: val("cap"), standing: val("stand"), note: $("checkin-note").value.trim() || null };
+    const file = $("checkin-photo").files && $("checkin-photo").files[0];
+    AUTH.require("Sign in to save your check-in to your Straw Story.", function (user) {
+      if (!checkDlg.open) checkDlg.showModal();
+      (myStraws.length ? Promise.resolve() : loadMyStraws()).then(function () {
+        if (!myStraws.length) { $("checkin-status").textContent = "You don't have a straw yet. Start your story on the Build page first."; return; }
+        const strawId = myStraws.length > 1 ? $("checkin-straw").value : myStraws[0].id;
+        $("checkin-status").textContent = "Saving…";
+        const upload = file ? shrink(file).then(function (blob) {
+          const path = user.id + "/" + Date.now() + ".jpg";
+          return AUTH.client.storage.from("checkin-photos").upload(path, blob, { contentType: "image/jpeg" }).then((r) => { if (r.error) throw r.error; return path; });
+        }) : Promise.resolve(null);
+        upload.then(function (path) {
+          return AUTH.client.from("checkins").insert(Object.assign({ straw_id: strawId, photo_path: path }, data));
+        }).then(function (r) {
+          if (r && r.error) throw r.error;
+          if (data.stage === 8) {
+            const straw = myStraws.find((x) => x.id === strawId);
+            const months = (Date.now() - new Date(straw.created_at).getTime()) / (30.44 * 864e5);
+            return AUTH.client.from("straws").update({ actual_release_months: Math.round(months * 10) / 10 }).eq("id", strawId);
+          }
+        }).then(function () {
+          $("checkin-status").textContent = "Saved. Thank you!";
+          setTimeout(function () { checkDlg.close(); }, 900);
+          loadFeed();
+        }).catch(function (err) { $("checkin-status").textContent = "Couldn't save: " + err.message; });
+      });
+    });
+  });
   checkDlg.querySelector("[data-close]").addEventListener("click", () => checkDlg.close());
   document.querySelectorAll("[data-checkin]").forEach((b) => b.addEventListener("click", openCheckin));
 
-  function askSignIn(why) {
-    const d = $("signin");
-    d.querySelector("#signin-why").textContent = why;
-    d.querySelector("#signin-status").textContent = "Free. We only use your email to sign you in.";
-    d.showModal();
-  }
-
+  // Reload when accounts connect or someone signs in/out.
+  let lastUser;
+  AUTH.onChange(function (u) { const key = (AUTH.client ? "db:" : "") + (u ? u.id : ""); if (key === lastUser) return; lastUser = key; myStraws = []; loadFeed(); });
   renderFeed();
 })();

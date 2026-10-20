@@ -96,26 +96,6 @@
     document.getElementById("hiw-weather").innerHTML = w;
   }
 
-  // ---- Sign-in dialog (front end only; accounts arrive in a later slice)
-  const dialog = document.getElementById("signin");
-  document.querySelectorAll("[data-signin]").forEach(function (b) {
-    b.addEventListener("click", function () {
-      const why = b.getAttribute("data-signin");
-      dialog.querySelector("#signin-why").textContent = why || "Sign in to download your straw and post in Community.";
-      dialog.showModal();
-    });
-  });
-  if (dialog) {
-    dialog.querySelector("[data-close]").addEventListener("click", function () { dialog.close(); });
-    dialog.querySelector("form").addEventListener("submit", function (e) {
-      e.preventDefault();
-      dialog.querySelector("#signin-status").textContent = "Accounts are not switched on yet. This is a preview.";
-    });
-    dialog.querySelector("#google").addEventListener("click", function () {
-      dialog.querySelector("#signin-status").textContent = "Google sign-in is not switched on yet. This is a preview.";
-    });
-  }
-
   // ---- Routing: #home, #about, #build, #community
   const views = Array.from(document.querySelectorAll("[data-view]"));
   const links = Array.from(document.querySelectorAll(".site-nav a"));

@@ -456,6 +456,34 @@
     $("material-diam").textContent = "Your printer needs " + p.fil + " mm.";
   });
 
+  // ---------- Actions that need an account (see auth.js)
+  const AUTH = window.BeeAuth;
+  if (AUTH) {
+    AUTH.actions.download = function () {
+      $("get-status").textContent = "Print files are on their way: we're turning our tested generator into one that writes files for every printer. Start your Straw Story and we'll let you know when yours is ready.";
+    };
+    AUTH.actions["create-story"] = function () {
+      if (!AUTH.client || !state.site || !state.result) { $("get-status").textContent = "Preview: accounts are not switched on yet, so stories can't be saved."; return; }
+      const p = PRINTERS.find((x) => x.id === sel.value);
+      $("get-status").textContent = "Saving your straw…";
+      AUTH.client.from("straws").insert({
+        lat: Math.round(state.site.lat * 100) / 100, lon: Math.round(state.site.lon * 100) / 100,
+        place_name: state.site.name === "Your pin" ? null : state.site.name.slice(0, 80),
+        printer: p ? p.name : null, install_month: state.install,
+        fuse_line_mm: Math.round(state.result.line * 100) / 100,
+        predicted_release_months: isFinite(state.result.release) ? Math.round(state.result.release * 10) / 10 : null,
+        weather_source: state.source
+      }).select("id").single().then(function (r) {
+        if (r.error) { $("get-status").textContent = "Couldn't save: " + r.error.message; return; }
+        return AUTH.client.from("checkins").insert({ straw_id: r.data.id, stage: 0, note: "Printed and ready to install." }).then(function () {
+          $("get-status").textContent = "Your Straw Story has started.";
+          location.hash = "#community";
+          if (window.BeeCommunity) window.BeeCommunity.openStory(r.data.id);
+        });
+      });
+    };
+  }
+
   // ---------- Start
   loadGoogle().then(initGoogle).catch(initPreviewMap).then(function () {
     const e = EXAMPLES[0];
