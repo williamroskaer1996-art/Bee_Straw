@@ -97,7 +97,13 @@ main { min-height: 60vh; }
 .hero p.lede { font-size: 1.12rem; color: var(--muted); }
 .mosaic { position: relative; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-auto-flow: dense; grid-auto-rows: clamp(46px, 9vw, 112px); gap: 3px; border-radius: 14px; overflow: hidden; }
 .mosaic canvas { width: 100%; height: 100%; display: block; min-width: 0; }
-@media (max-width: 600px) { .mosaic { grid-template-columns: repeat(4, minmax(0, 1fr)); } .mosaic canvas:nth-of-type(n+11) { display: none; } }
+.ae-tile { margin: 0; position: relative; min-width: 0; overflow: hidden; }
+.ae-tile.big { grid-column: span 2; grid-row: span 2; }
+.ae-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ae-tile figcaption { position: absolute; left: 6px; bottom: 6px; right: 6px; font: 0.68rem var(--f-mono); color: #fff; text-shadow: 0 1px 3px rgb(0 0 0 / 0.7); opacity: 0; transition: opacity 160ms ease-out; pointer-events: none; }
+.ae-tile.big figcaption { opacity: 0.9; }
+@media (hover: hover) and (pointer: fine) { .ae-tile:hover figcaption { opacity: 1; } }
+@media (max-width: 600px) { .mosaic { grid-template-columns: repeat(4, minmax(0, 1fr)); } .mosaic .ae-tile:nth-of-type(n+11) { display: none; } }
 .mosaic .big { grid-column: span 2; grid-row: span 2; }
 .mosaic-caption { font-size: 0.85rem; color: var(--muted); }
 .bee-slot {
@@ -132,7 +138,7 @@ main { min-height: 60vh; }
 .hiw-slide { scroll-snap-align: start; display: grid; gap: 18px; justify-items: center; padding-block: 8px; }
 .hiw-art { width: 100%; aspect-ratio: 400 / 260; max-width: 100%; height: auto; display: block; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
 .hiw-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px; padding: 0; overflow: hidden; }
-.hiw-tiles canvas { width: 100%; height: 100%; display: block; }
+.hiw-tiles canvas, .hiw-tiles img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .hiw-text { display: grid; gap: 8px; justify-items: center; }
 .hiw-text p { max-width: 46ch; }
 .hiw-text h3 { font-size: clamp(1.3rem, 2.4vw, 1.7rem); letter-spacing: -0.015em; }
