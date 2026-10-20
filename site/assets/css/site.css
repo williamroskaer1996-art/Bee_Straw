@@ -161,7 +161,23 @@ main { min-height: 60vh; }
 .flowbar span.on { color: var(--ink); border-color: var(--ink); }
 .build-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 20px; }
 @media (max-width: 840px) { .build-grid { grid-template-columns: 1fr; } }
-.search { display: flex; gap: 8px; }
+.search { display: flex; gap: 8px; position: relative; z-index: 20; }
+.combo { position: relative; flex: 1; min-width: 0; display: flex; }
+.combo input { width: 100%; }
+.suggest { position: absolute; z-index: 1000; left: 0; right: 0; top: calc(100% + 6px); margin: 0; padding: 6px; list-style: none; background: var(--bg); border: 1px solid var(--line-strong); border-radius: 14px; box-shadow: 0 12px 32px rgb(16 18 24 / 0.14); display: grid; gap: 2px; max-height: 320px; overflow-y: auto; }
+.suggest li { padding: 9px 12px; border-radius: 9px; cursor: pointer; display: grid; gap: 1px; }
+.suggest li .s-main { font-weight: 500; }
+.suggest li .s-sub { font-size: 0.82rem; color: var(--muted); }
+.suggest li[aria-selected="true"] { background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
+@media (hover: hover) and (pointer: fine) { .suggest li:hover { background: var(--surface); } }
+.suggest .s-empty { color: var(--muted); cursor: default; font-size: 0.88rem; }
+.icon-btn { padding: 10px 12px; }
+.map-hint { font-size: 0.82rem; margin-top: -4px; }
+/* Map cursors: crosshair = place a pin, closed hand while dragging the map */
+#build-map.leaflet-grab, #build-map.leaflet-container { cursor: crosshair; }
+.leaflet-dragging #build-map.leaflet-grab, .leaflet-dragging #build-map .leaflet-interactive { cursor: grabbing; }
+#build-map .leaflet-marker-draggable { cursor: grab; }
+#build-map .leaflet-control-layers, #build-map .leaflet-control-zoom a { cursor: pointer; }
 .search input { flex: 1; min-width: 0; font: inherit; padding: 10px 14px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--bg); color: var(--ink); }
 .map-slot { aspect-ratio: 4 / 3; max-width: 100%; }
 .site-chain { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; }
@@ -173,7 +189,7 @@ select { font: inherit; padding: 10px 12px; border-radius: 10px; border: 1px sol
 .decay-slot { aspect-ratio: 16 / 9; max-width: 100%; }
 
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.map { position: relative; aspect-ratio: 7 / 6; max-width: 100%; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--surface); }
+.map { isolation: isolate; z-index: 0; position: relative; aspect-ratio: 7 / 6; max-width: 100%; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--surface); }
 .map .leaflet-container, .map.leaflet-container { width: 100%; height: 100%; font: 0.75rem var(--f-body); }
 .map-toggle { margin: 10px; }
 .map svg.pm { width: 100%; height: 100%; display: block; cursor: crosshair; }
