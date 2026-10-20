@@ -147,11 +147,17 @@
     <div class="build-grid">
       <div class="card">
         <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center"><span class="label">Preview + decay</span><span class="tag">Model output · uncalibrated</span></div>
-        <svg id="straw" class="straw" viewBox="0 0 420 222" role="img" aria-label="Your straw installed, with the fuse in the soil"></svg>
+        <figure class="sim">
+          <video id="sim-video" muted playsinline preload="auto" poster="assets/video/fuse-decay-poster.jpg" aria-label="Simulated cutaway of the fuse in the soil wearing away, month by month">
+            <source src="assets/video/fuse-decay.webm" type="video/webm"><source src="assets/video/fuse-decay.mp4" type="video/mp4">
+          </video>
+          <span class="sim-month mono" id="sim-month">month 0</span>
+          <figcaption class="mono">Decay simulation · cutaway of the fuse at the soil line (brown plane) · timed to your site</figcaption>
+        </figure>
         <label for="decay-month" class="readout"><span>Month <strong id="decay-label">0</strong> after installing</span><span id="decay-state" class="muted"></span></label>
-        <input id="decay-month" type="range" min="0" max="18" step="1" value="0">
+        <input id="decay-month" type="range" min="0" max="18" step="0.5" value="0">
         <svg id="decay-chart" class="chart" viewBox="0 0 420 150" role="img" aria-label="Share of the fuse left over 18 months"></svg>
-        <p class="muted" style="font-size:.85rem">A simple estimate from published PHA decay rates in wet soil and your weather. Real soils can be several times faster or slower until they are measured. The full decay animation from our simulation comes here later.</p>
+        <p class="muted" style="font-size:.85rem">The animation is our decay simulation of the fuse (engine 0.3.1, De Bilt weather, where it lets go at 13 months), sped up or slowed down to match the estimate for your pin. The chart is a simple estimate from published PHA decay rates in wet soil and your weather. Real soils can be several times faster or slower until they are measured.</p>
       </div>
       <div class="section" style="gap:20px;align-content:start">
         <div class="card">
