@@ -7,6 +7,8 @@ window.BEESTRAW_CONFIG = {
   // Leave empty to run in preview mode (no accounts, nothing saved).
   supabaseUrl: "",
   supabaseAnonKey: "",
+  // Earth Engine connector for AlphaEarth (earth-engine/alphaearth-function). Leave empty for placeholders.
+  alphaEarthEndpoint: "",
   // Open-Meteo historical weather (free for non-commercial use).
   weatherApi: "https://archive-api.open-meteo.com/v1/archive",
   geocodeApi: "https://geocoding-api.open-meteo.com/v1/search",
