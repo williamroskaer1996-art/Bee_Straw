@@ -54,6 +54,48 @@
     });
   }
 
+  // ---- How it works carousel (scroll-snap track + tabs)
+  const track = document.getElementById("hiw-track");
+  if (track) {
+    const tabs = Array.from(document.querySelectorAll(".hiw-tabs [role=tab]"));
+    const slides = Array.from(track.children);
+    let current = 0;
+    const go = (i) => { i = Math.max(0, Math.min(slides.length - 1, i)); track.scrollTo({ left: slides[i].offsetLeft - track.offsetLeft, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); mark(i); };
+    const mark = (i) => {
+      current = i;
+      tabs.forEach((t, k) => { t.setAttribute("aria-selected", k === i ? "true" : "false"); t.tabIndex = k === i ? 0 : -1; });
+      document.getElementById("hiw-count").textContent = i + 1 + " / " + slides.length;
+      document.getElementById("hiw-prev").disabled = i === 0;
+      document.getElementById("hiw-next").disabled = i === slides.length - 1;
+    };
+    tabs.forEach((t, k) => {
+      t.addEventListener("click", () => go(k));
+      t.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowRight" || e.key === "ArrowLeft") { e.preventDefault(); const n = current + (e.key === "ArrowRight" ? 1 : -1); go(n); tabs[Math.max(0, Math.min(tabs.length - 1, n))].focus(); }
+      });
+    });
+    document.getElementById("hiw-prev").addEventListener("click", () => go(current - 1));
+    document.getElementById("hiw-next").addEventListener("click", () => go(current + 1));
+    // Sync the tabs when the visitor swipes; wait until scrolling settles so button clicks aren't undone mid-scroll.
+    let settle = 0;
+    track.addEventListener("scroll", () => { clearTimeout(settle); settle = setTimeout(() => { const i = Math.round(track.scrollLeft / track.clientWidth); if (i !== current) mark(i); }, 140); }, { passive: true });
+    mark(0);
+
+    const tiles = document.getElementById("hiw-tiles");
+    for (let k = 0; k < 8; k++) tiles.appendChild(makeCanvas(100, 90, 200 + k * 23, k % 2 === 0));
+    // Weather: 12 monthly bars of rain (dark) and wet-soil days (grey), example values
+    const rain = [70, 55, 60, 45, 55, 65, 80, 85, 75, 85, 85, 75], wet = [26, 23, 22, 15, 10, 7, 6, 7, 11, 18, 24, 27];
+    let w = '<g class="d-grid"><line x1="30" y1="220" x2="390" y2="220"/></g>';
+    "JFMAMJJASOND".split("").forEach((m, i) => {
+      const x = 36 + i * 29;
+      w += '<rect class="d-bar" x="' + x + '" y="' + (220 - rain[i] * 1.6) + '" width="11" height="' + rain[i] * 1.6 + '"/>';
+      w += '<rect class="d-bar wet" x="' + (x + 12) + '" y="' + (220 - wet[i] * 4.5) + '" width="11" height="' + wet[i] * 4.5 + '"/>';
+      w += '<text class="d-lab" x="' + (x + 11) + '" y="238" text-anchor="middle">' + m + "</text>";
+    });
+    w += '<rect class="d-bar" x="36" y="22" width="10" height="10"/><text class="d-lab" x="52" y="31">rain (mm)</text><rect class="d-bar wet" x="140" y="22" width="10" height="10"/><text class="d-lab" x="156" y="31">days the soil is wet</text>';
+    document.getElementById("hiw-weather").innerHTML = w;
+  }
+
   // ---- Community: example stories (not real people)
   const STORIES = [
     { who: "Anna · Utrecht, NL", text: "Printed it on my Prusa, first try", stage: 2, when: "Month 1", seed: 3 },
@@ -122,8 +164,15 @@
     try { history.replaceState(null, "", "#" + name); } catch (err) { /* sandboxed preview */ }
     show(name, true);
   });
-  window.addEventListener("hashchange", function () { show(location.hash.slice(1), true); });
-  show(location.hash.slice(1) || "home", false);
+  window.addEventListener("hashchange", function () {
+    const name = location.hash.slice(1);
+    if (views.some(function (v) { return v.dataset.view === name; })) show(name, true);
+  });
+  const start = location.hash.slice(1);
+  const target = start && document.getElementById(start);
+  const inView = target && target.closest("[data-view]");
+  show(inView && !target.matches("[data-view]") ? inView.dataset.view : start || "home", false);
+  if (inView && !target.matches("[data-view]")) target.scrollIntoView();
 
   document.getElementById("year").textContent = new Date().getFullYear();
 })();

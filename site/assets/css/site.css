@@ -109,6 +109,45 @@ main { min-height: 60vh; }
 .step { border-top: 2px solid var(--ink); padding-top: 12px; display: grid; gap: 8px; align-content: start; }
 .step .slot { height: 112px; }
 
+/* Why this exists */
+.why { scroll-margin-top: 80px; }
+.why-years { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 14px; }
+.why-years li { border-top: 2px solid var(--ink); padding-top: 12px; display: grid; gap: 6px; align-content: start; }
+.why-years li:nth-child(2) { border-top-color: var(--muted); }
+.why-years li:nth-child(3) { border-top-style: dashed; }
+.why-answer { display: flex; justify-content: space-between; align-items: end; gap: 20px; flex-wrap: wrap; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; }
+.why-answer > div { max-width: 62ch; }
+.source { font-size: 0.8rem; color: var(--muted); }
+
+/* How it works carousel */
+.hiw-tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--line); }
+.hiw-tabs button { font: 500 0.9rem var(--f-body); color: var(--muted); background: none; border: 0; border-bottom: 2px solid transparent; padding: 10px 12px; cursor: pointer; white-space: nowrap; margin-bottom: -1px; }
+.hiw-tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); }
+.hiw-tabs .mono { font-size: 0.72rem; margin-right: 4px; }
+.hiw-track { display: grid; grid-auto-flow: column; grid-auto-columns: 100%; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain; }
+.hiw-track::-webkit-scrollbar, .hiw-tabs::-webkit-scrollbar { display: none; }
+.hiw-slide { scroll-snap-align: start; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 32px; align-items: center; padding-block: 8px; }
+@media (max-width: 760px) { .hiw-slide { grid-template-columns: 1fr; gap: 16px; } }
+.hiw-art { width: 100%; aspect-ratio: 400 / 260; max-width: 100%; height: auto; display: block; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.hiw-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px; padding: 0; overflow: hidden; }
+.hiw-tiles canvas { width: 100%; height: 100%; display: block; }
+.hiw-text { display: grid; gap: 10px; }
+.hiw-text h3 { font-size: clamp(1.3rem, 2.4vw, 1.7rem); letter-spacing: -0.015em; }
+.hiw-controls { display: flex; gap: 12px; align-items: center; }
+.d-grid line { stroke: var(--line-strong); stroke-width: 0.8; stroke-dasharray: 2 3; }
+.d-lead { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; fill: none; }
+.d-lab { fill: var(--muted); font: 11px var(--f-mono); }
+.d-ink { stroke: var(--ink); stroke-width: 2.5; }
+.d-ink2 { fill: none; stroke: var(--ink); stroke-width: 2; }
+.d-thin { fill: none; stroke: var(--ink); stroke-width: 0.8; }
+.d-dash { fill: none; stroke: var(--muted); stroke-width: 1.2; stroke-dasharray: 3 3; }
+.d-fill { fill: var(--ink); }
+.d-bg { fill: var(--bg); }
+.d-soil { fill: var(--line); opacity: 0.6; }
+.d-soil-line { stroke: var(--muted); stroke-width: 1; }
+.d-bar { fill: var(--ink); }
+.d-bar.wet { fill: var(--muted); }
+
 /* About */
 .people { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 20px; }
 .person .slot { aspect-ratio: 4 / 3; max-width: 100%; }
