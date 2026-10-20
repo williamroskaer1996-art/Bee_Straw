@@ -24,7 +24,29 @@ Live weather (Open-Meteo) starts working here: it needs no key. Open-Meteo is fr
 
 What is stored: a first name (from Google) or "Beekeeper", straws with their location **rounded to 0.01° (about 1 km)**, check-ins, comments and photos. Email addresses are never shown on the site.
 
-## 3. Google Maps (optional)
+## 3. AlphaEarth (Google Earth Engine)
+
+AlphaEarth data can only be read through Google Earth Engine, so the site asks a small connector for it: `earth-engine/alphaearth-function/`. It returns the AlphaEarth image around a pin (640 × 640 m, 10 m pixels), the 64 AlphaEarth numbers at the pin, and a map layer. Earth Engine is free for research, education and non-profit use.
+
+1. **Register for Earth Engine:** go to [code.earthengine.google.com/register](https://code.earthengine.google.com/register), choose **Unpaid usage** (non-commercial, e.g. academic), and create or pick a Google Cloud project, for example `beestraw`. Note its **project ID**.
+2. In [Google Cloud Console](https://console.cloud.google.com) with that project selected, enable the **Google Earth Engine API**.
+3. **Create the function:** **Cloud Run → Write a function**.
+   - Name `alphaearth`, region `europe-west1` (or another EU region), runtime **Node.js 22**.
+   - Authentication: **Allow public access** (the site calls it from visitors' browsers).
+   - In the inline editor, replace `index.js` and `package.json` with the two files from `earth-engine/alphaearth-function/`. Set the **function entry point** to `alphaearth`.
+   - Under **Variables**, add `EE_PROJECT` = your project ID and `ALLOWED_ORIGINS` = `https://williamroskaer1996-art.github.io`.
+   - Create it and wait for the green tick. Copy its URL (ending in `.run.app`).
+4. **Give the function access to Earth Engine:** **IAM & Admin → IAM → Grant access**. The principal is the function's service account (shown on the function's **Security** tab; often `<number>-compute@developer.gserviceaccount.com`). Add the roles **Earth Engine Resource Viewer** and **Service Usage Consumer**.
+5. **Check it:** open `<function URL>?lat=52.1&lon=5.18` in a browser. You should see JSON with `"year":2024` and a long `png` value.
+6. Put the URL in `config.js` as `alphaEarthEndpoint`.
+
+The site then shows the real fingerprint in **Your site** and adds an **AlphaEarth 2024** layer to the map. Attribution required by the dataset licence (CC BY 4.0) is already in the site footer.
+
+## 4. Map
+
+Without a key, **Build your straw** shows a satellite map (Leaflet with Esri World Imagery, credited on the map). Check Esri's terms of use before a large public launch [to verify]. To use Google Maps instead, follow step 5.
+
+## 5. Google Maps (optional)
 
 1. In Google Cloud Console: enable the **Maps JavaScript API** and the **Geocoding API**, and set up billing (Google gives a monthly free allowance).
 2. **Credentials → Create credentials → API key**. Restrict it: **Application restrictions → Websites** → your Pages address; **API restrictions** → the two APIs above.

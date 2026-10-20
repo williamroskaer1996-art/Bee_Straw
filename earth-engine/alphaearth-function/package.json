@@ -1,0 +1,14 @@
+{
+  "name": "beestraw-alphaearth",
+  "version": "0.1.0",
+  "description": "Earth Engine connector for Bee Straw: AlphaEarth fingerprint and map tiles for a location",
+  "main": "index.js",
+  "private": true,
+  "license": "MIT",
+  "engines": { "node": ">=20" },
+  "scripts": { "start": "functions-framework --target=alphaearth" },
+  "dependencies": {
+    "@google-cloud/functions-framework": "5.0.5",
+    "@google/earthengine": "1.7.45"
+  }
+}

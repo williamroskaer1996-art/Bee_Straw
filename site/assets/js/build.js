@@ -65,7 +65,7 @@
   // ---------- State
   const state = { site: null, climate: null, source: "example", install: 2, month: 0, result: null };
 
-  // ---------- Map: Google Maps when a key is set, otherwise a graticule preview map
+  // ---------- Map: Google Maps when a key is set, otherwise a satellite map (Leaflet), otherwise a preview map
   const mapEl = $("build-map");
   let gmap = null, gmarker = null;
   function loadGoogle() {
@@ -85,6 +85,66 @@
     gmap.addListener("click", function (e) { setPlace(e.latLng.lat(), e.latLng.lng(), null); });
     gmarker.addListener("dragend", function () { const p = gmarker.position; setPlace(p.lat, p.lng, null); });
   }
+  // Satellite map without a key: Leaflet with Esri World Imagery. Rejects if the tiles can't load
+  // (for example inside a sandboxed preview), so the preview map takes over.
+  let lmap = null, lmarker = null;
+  function loadLeaflet() {
+    if (window.L) return Promise.resolve();
+    return new Promise(function (resolve, reject) {
+      const css = document.createElement("link");
+      css.rel = "stylesheet"; css.href = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css";
+      document.head.appendChild(css);
+      const s = document.createElement("script");
+      s.src = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js";
+      s.onload = resolve; s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+  function initLeaflet() {
+    return new Promise(function (resolve, reject) {
+      mapEl.innerHTML = "";
+      lmap = L.map(mapEl, { center: [50, 9], zoom: 4, zoomControl: true, attributionControl: true });
+      const sat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+        maxZoom: 19, attribution: "Imagery © Esri, Maxar, Earthstar Geographics"
+      });
+      const labels = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}", { maxZoom: 19, opacity: 0.85 });
+      let loaded = 0, failed = 0, done = false;
+      sat.on("tileload", function () { loaded++; if (!done) { done = true; resolve(); } });
+      sat.on("tileerror", function () { failed++; if (!done && failed >= 6 && loaded === 0) { done = true; lmap.remove(); lmap = null; reject(new Error("tiles blocked")); } });
+      setTimeout(function () { if (!done) { done = true; if (lmap) { lmap.remove(); lmap = null; } reject(new Error("timeout")); } }, 6000);
+      sat.addTo(lmap); labels.addTo(lmap);
+      lmap.layers = { base: { Satellite: sat }, overlay: { Labels: labels } };
+      lmarker = L.marker([50, 9], { draggable: true, keyboard: true, title: "Your straw", alt: "Your straw" });
+      lmap.on("click", function (e) { setPlace(e.latlng.lat, e.latlng.lng, null); });
+      lmarker.on("dragend", function () { const p = lmarker.getLatLng(); setPlace(p.lat, p.lng, null); });
+    });
+  }
+
+  // AlphaEarth layer over the map (needs the Earth Engine connector, see docs/SETUP.md).
+  function addAlphaEarthLayer() {
+    if (!CFG.alphaEarthEndpoint) return;
+    fetch(CFG.alphaEarthEndpoint + "?tiles=1").then((r) => r.json()).then(function (d) {
+      if (!d.urlFormat) return;
+      const name = "AlphaEarth " + d.year;
+      if (lmap) {
+        const ae = L.tileLayer(d.urlFormat, { maxZoom: 19, opacity: 0.8, attribution: "AlphaEarth Foundations Satellite Embedding, Google and Google DeepMind" });
+        lmap.layers.overlay[name] = ae;
+        L.control.layers(lmap.layers.base, lmap.layers.overlay, { collapsed: false }).addTo(lmap);
+      } else if (gmap) {
+        const layer = new google.maps.ImageMapType({ name: name, tileSize: new google.maps.Size(256, 256), opacity: 0.8,
+          getTileUrl: (c, z) => d.urlFormat.replace("{x}", c.x).replace("{y}", c.y).replace("{z}", z) });
+        const btn = document.createElement("button");
+        btn.type = "button"; btn.className = "btn small secondary map-toggle"; btn.textContent = "Show " + name;
+        btn.addEventListener("click", function () {
+          const on = gmap.overlayMapTypes.getLength() > 0;
+          if (on) gmap.overlayMapTypes.clear(); else gmap.overlayMapTypes.push(layer);
+          btn.textContent = (on ? "Show " : "Hide ") + name;
+        });
+        gmap.controls[google.maps.ControlPosition.TOP_RIGHT].push(btn);
+      }
+    }).catch(function () { /* connector not reachable: map works without the layer */ });
+  }
+
   // Preview map: equirectangular Europe, lon −11…31, lat 35…71.
   const BOX = { lon0: -11, lon1: 31, lat0: 35, lat1: 71, w: 420, h: 360 };
   const px = (lon) => ((lon - BOX.lon0) / (BOX.lon1 - BOX.lon0)) * BOX.w;
@@ -101,7 +161,7 @@
       '<svg class="pm" viewBox="0 0 ' + BOX.w + " " + BOX.h + '" role="img" aria-label="Map of Europe. Click to place your pin.">' +
       '<rect class="pm-bg" width="' + BOX.w + '" height="' + BOX.h + '"/><g class="pm-grid">' + g + "</g>" + dots +
       '<g id="pm-pin" hidden><line class="pm-stem" x1="0" y1="0" x2="0" y2="-18"/><circle class="pm-head" cx="0" cy="-22" r="7"/><circle class="pm-foot" r="2.5"/></g></svg>' +
-      '<p class="pm-note">Preview map. The live site uses Google Maps with satellite view.</p>';
+      '<p class="pm-note">Preview map. The live site shows a satellite map.</p>';
     const svg = mapEl.querySelector("svg");
     svg.addEventListener("click", function (e) {
       const site = e.target.closest(".pm-site");
@@ -118,6 +178,7 @@
   }
   function movePin(lat, lon) {
     if (gmarker) { gmarker.position = { lat: lat, lng: lon }; gmap.panTo({ lat: lat, lng: lon }); if (gmap.getZoom() < 9) gmap.setZoom(12); return; }
+    if (lmarker) { lmarker.setLatLng([lat, lon]).addTo(lmap); lmap.setView([lat, lon], Math.max(lmap.getZoom(), 15)); return; }
     const pin = $("pm-pin");
     if (pin) { pin.removeAttribute("hidden"); pin.setAttribute("transform", "translate(" + px(lon) + " " + py(lat) + ")"); }
   }
@@ -201,8 +262,8 @@
     movePin(lat, lon);
     state.site = { lat: lat, lon: lon, name: name || "Your pin" };
     $("site-name").textContent = state.site.name;
-    $("site-coord").textContent = fmtCoord(lat, lon);
-    if (window.BeeTiles) window.BeeTiles.drawTile($("site-tile"), Math.round((lat * 1000 + lon * 37) * 7) >>> 0, true);
+    $("site-coord").textContent = Math.abs(lat).toFixed(5) + "° " + (lat >= 0 ? "N" : "S") + " · " + Math.abs(lon).toFixed(5) + "° " + (lon >= 0 ? "E" : "W");
+    loadFingerprint(lat, lon, token);
     setStatus("Reading weather for this spot…");
     $("flow-site").classList.add("on"); $("flow-preview").classList.add("on");
     fetchClimate(lat, lon).then(function (c) {
@@ -219,6 +280,37 @@
     });
   }
   function setStatus(t) { $("site-status").textContent = t; }
+
+  // AlphaEarth fingerprint of the area around the pin, from the Earth Engine connector.
+  // Without the connector a generated placeholder is shown and labelled as such.
+  function loadFingerprint(lat, lon, token) {
+    const canvas = $("site-tile"), note = $("site-tile-note");
+    const placeholder = function () {
+      if (window.BeeTiles) window.BeeTiles.drawTile(canvas, Math.round((lat * 1000 + lon * 37) * 7) >>> 0, true);
+      note.textContent = "AlphaEarth fingerprint of your place. Placeholder image until the Earth Engine connector is switched on.";
+    };
+    if (!CFG.alphaEarthEndpoint) { placeholder(); return; }
+    note.textContent = "Reading AlphaEarth…";
+    fetch(CFG.alphaEarthEndpoint + "?lat=" + lat.toFixed(5) + "&lon=" + lon.toFixed(5))
+      .then((r) => r.json())
+      .then(function (d) {
+        if (token !== placeToken) return;
+        if (!d.png) throw new Error(d.error || "no image");
+        const img = new Image();
+        img.onload = function () {
+          const ctx = canvas.getContext("2d");
+          ctx.imageSmoothingEnabled = false;
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2;
+          ctx.strokeRect(canvas.width / 2 - 3, canvas.height / 2 - 3, 6, 6);
+        };
+        img.src = d.png;
+        state.embedding = d.vector || null;
+        note.textContent = "AlphaEarth " + d.year + ": " + d.sizeMeters + " × " + d.sizeMeters + " m around your pin, each pixel 10 m. Colours show 3 of the 64 numbers that describe each square.";
+      })
+      .catch(function () { if (token === placeToken) placeholder(); });
+  }
 
   // ---------- Render site card + decay
   function render() {
@@ -485,7 +577,10 @@
   }
 
   // ---------- Start
-  loadGoogle().then(initGoogle).catch(initPreviewMap).then(function () {
+  loadGoogle().then(initGoogle)
+    .catch(function () { return loadLeaflet().then(initLeaflet); })
+    .then(addAlphaEarthLayer, initPreviewMap)
+    .then(function () {
     const e = EXAMPLES[0];
     setPlace(e.lat, e.lon, e.name);
   });
