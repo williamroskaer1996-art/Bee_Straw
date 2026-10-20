@@ -56,12 +56,11 @@
       ["bulbs", "Bulb fields, Lisse, NL", false], ["dalarna", "Forest and lakes, Dalarna, SE", false], ["camargue", "Camargue, FR", false],
       ["iceland", "South Iceland", false], ["wadden", "Wadden Sea coast, NL", false], ["debilt", "De Bilt, NL", false]
     ];
-    const slot = mosaic.querySelector(".bee-slot");
     PLACES.forEach(function (pl) {
       const fig = document.createElement("figure");
       fig.className = "ae-tile" + (pl[2] ? " big" : "");
       fig.innerHTML = '<img src="assets/img/ae/' + pl[0] + '.jpg" alt="AlphaEarth view of ' + pl[1] + '" loading="lazy" width="' + (pl[2] ? 256 : 128) + '" height="' + (pl[2] ? 256 : 128) + '"><figcaption>' + pl[1] + "</figcaption>";
-      mosaic.insertBefore(fig, slot);
+      mosaic.appendChild(fig);
     });
   }
 
