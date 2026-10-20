@@ -44,13 +44,24 @@
 
   window.BeeTiles = { drawTile: drawTile };
 
-  // ---- Home mosaic
+  // ---- Home mosaic: real AlphaEarth 2025 images (bands A01/A16/A09) of European landscapes,
+  // rendered once with tools/render_ae_mosaic.js. Big tiles show ~10 km, small ones ~5 km, at 40 m per pixel.
   const mosaic = document.getElementById("mosaic");
   if (mosaic) {
-    const layout = ["big", "", "", "big", "", "", "", "", "", "", "", "", "", "", "", "", "", ""];
-    layout.forEach(function (cls, k) {
-      const big = cls === "big";
-      mosaic.insertBefore(makeCanvas(big ? 220 : 110, big ? 220 : 110, k * 97 + 13, k % 3 === 0, cls), mosaic.querySelector(".bee-slot"));
+    const PLACES = [
+      ["flevoland", "Flevoland polders, NL", true], ["po", "Po delta, IT", false], ["almeria", "Greenhouses, Almería, ES", false],
+      ["olive", "Olive groves, Jaén, ES", true], ["alps", "Bernese Alps, CH", false], ["fjord", "Sognefjord, NO", false],
+      ["jutland", "Farmland, Jutland, DK", false], ["paris", "Paris, FR", false], ["venice", "Venice lagoon, IT", false],
+      ["rhine", "Rhine valley, DE", false], ["puszta", "Great Plain, HU", false], ["highlands", "Scottish Highlands, UK", false],
+      ["bulbs", "Bulb fields, Lisse, NL", false], ["dalarna", "Forest and lakes, Dalarna, SE", false], ["camargue", "Camargue, FR", false],
+      ["iceland", "South Iceland", false], ["wadden", "Wadden Sea coast, NL", false], ["debilt", "De Bilt, NL", false]
+    ];
+    const slot = mosaic.querySelector(".bee-slot");
+    PLACES.forEach(function (pl) {
+      const fig = document.createElement("figure");
+      fig.className = "ae-tile" + (pl[2] ? " big" : "");
+      fig.innerHTML = '<img src="assets/img/ae/' + pl[0] + '.jpg" alt="AlphaEarth view of ' + pl[1] + '" loading="lazy" width="' + (pl[2] ? 256 : 128) + '" height="' + (pl[2] ? 256 : 128) + '"><figcaption>' + pl[1] + "</figcaption>";
+      mosaic.insertBefore(fig, slot);
     });
   }
 
@@ -82,7 +93,11 @@
     mark(0);
 
     const tiles = document.getElementById("hiw-tiles");
-    for (let k = 0; k < 8; k++) tiles.appendChild(makeCanvas(100, 90, 200 + k * 23, k % 2 === 0));
+    ["almeria", "po", "flevoland", "alps", "paris", "venice", "jutland", "fjord"].forEach(function (id) {
+      const im = document.createElement("img");
+      im.src = "assets/img/ae/" + id + ".jpg"; im.alt = ""; im.loading = "lazy";
+      tiles.appendChild(im);
+    });
     // Weather: 12 monthly bars of rain (dark) and wet-soil days (grey), example values
     const rain = [70, 55, 60, 45, 55, 65, 80, 85, 75, 85, 85, 75], wet = [26, 23, 22, 15, 10, 7, 6, 7, 11, 18, 24, 27];
     let w = '<g class="d-grid"><line x1="30" y1="220" x2="390" y2="220"/></g>';
