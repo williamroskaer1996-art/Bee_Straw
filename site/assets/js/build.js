@@ -197,6 +197,7 @@
   let placeToken = 0;
   function setPlace(lat, lon, name) {
     const token = ++placeToken;
+    state.autoInstall = true;
     movePin(lat, lon);
     state.site = { lat: lat, lon: lon, name: name || "Your pin" };
     $("site-name").textContent = state.site.name;
@@ -232,6 +233,11 @@
       ? "Weather: Open-Meteo, last " + (CFG.weatherYears || 5) + " years" + (c.soilData ? ", with topsoil moisture." : ".")
       : "Live weather isn't available here, so this uses an example climate for the region.");
 
+    if (state.autoInstall) {
+      state.install = recommendedInstallMonth(c); state.autoInstall = false;
+      $("install-month").value = String(state.install);
+    }
+    $("install-hint").textContent = "Suggested for your climate: install by " + when(phenology(c).install) + ".";
     const H = calibration(state.install);
     const cum = cumulative(c.months, state.install, 24);
     const std = releaseMonth(cum, H);
@@ -255,6 +261,7 @@
     drawChart();
     $("decay-month").max = 18;
     setMonth(+$("decay-month").value);
+    renderGuide();
   }
 
   // Chart: fuse left (%) over 18 months
@@ -304,6 +311,118 @@
   }
   $("decay-month").addEventListener("input", (e) => setMonth(+e.target.value));
   $("install-month").addEventListener("change", function (e) { state.install = +e.target.value; if (state.climate) render(); });
+
+
+  // ---------- Install guide (per location)
+  // Phenology is a rough estimate [assumed]: red mason bees emerge when daily mean temperatures reach
+  // about 8 °C in the topsoil; install ~3 weeks before; nesting lasts ~8 weeks; the new bees overwinter in the tube
+  // and emerge ~12 months later. That is why the fuse should hold for ~13 months.
+  const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const SHORT = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
+  const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  function emergenceDay(months) {
+    for (let d = 0; d < 200; d++) {
+      const f = (d - 15) / DAYS_PER_MONTH, m0 = Math.floor(f), u = f - m0;
+      const a = months[(m0 + 12) % 12].t, b = months[(m0 + 13) % 12].t;
+      if (a + (b - a) * u >= 8) return Math.max(35, d);
+    }
+    return 140;
+  }
+  function when(day) {
+    day = ((day % 365) + 365) % 365;
+    const m = Math.min(11, Math.floor(day / DAYS_PER_MONTH)), within = day - m * DAYS_PER_MONTH;
+    return (within < 10 ? "early " : within < 20 ? "mid-" : "late ") + MONTHS[m];
+  }
+  function phenology(c) {
+    const emerge = emergenceDay(c.months);
+    return { emerge: emerge, install: emerge - 21, nestEnd: emerge + 63, cocoons: emerge + 150, next: emerge + 365 };
+  }
+  function recommendedInstallMonth(c) {
+    return Math.max(0, Math.min(4, Math.floor(phenology(c).install / DAYS_PER_MONTH)));
+  }
+  function renderGuide() {
+    const c = state.climate, r = state.result, site = state.site; if (!c || !r) return;
+    const ph = phenology(c);
+    const installDay = Math.max(ph.install, state.install * DAYS_PER_MONTH);
+    const relDay = installDay + (isFinite(r.release) ? r.release * DAYS_PER_MONTH : 999);
+    const early = relDay < ph.next;
+    const species = site.lat < 46
+      ? "Red mason bee (<i>Osmia bicornis</i>) and the horned mason bee (<i>Osmia cornuta</i>), which flies a few weeks earlier"
+      : "Red mason bee (<i>Osmia bicornis</i>)";
+    $("guide-sub").textContent = "Made for " + site.name + " (" + fmtCoord(site.lat, site.lon) + "). Dates are estimates from your climate" + (state.source === "live" ? "." : " (example climate in this preview).");
+
+    // Calendar: 14 months from the install month
+    const startM = Math.floor(installDay / DAYS_PER_MONTH) % 12;
+    let cal = "", lab = "";
+    for (let k = 0; k < 14; k++) {
+      const mi = Math.floor(installDay / DAYS_PER_MONTH) + k, a0 = mi * DAYS_PER_MONTH, a1 = a0 + DAYS_PER_MONTH;
+      const overlaps = (x0, x1) => x0 < a1 && x1 > a0;
+      const cls = overlaps(ph.next, ph.next + 30) ? "emerge" : overlaps(ph.emerge, ph.nestEnd) ? "nest" : overlaps(ph.nestEnd, ph.next) ? "dev" : "";
+      cal += '<span class="' + cls + '"></span>';
+      lab += "<span>" + SHORT[(startM + k) % 12] + "</span>";
+    }
+    const top = (n, t) => '<div class="gp-top"><span>Bee Straw · install guide</span><span>' + n + " / 4 · " + t + "</span></div>";
+    const foot = '<p class="foot">' + esc(site.name) + " · " + fmtCoord(site.lat, site.lon) + " · dates are model estimates, uncalibrated</p>";
+
+    $("guide-pages").innerHTML =
+      // 1 Overview
+      '<article class="gp">' + top(1, "Your year") +
+      "<h3>Your straw at " + esc(site.name) + "</h3>" +
+      "<p>For: " + species + ". These bees fly in spring, lay eggs in tubes, and their young stay inside until next spring.</p>" +
+      '<dl class="when">' +
+      "<dt>Install by</dt><dd><strong>" + when(installDay) + "</strong>, before the first bees fly</dd>" +
+      "<dt>Bees fly</dt><dd>" + when(ph.emerge) + " to " + when(ph.nestEnd) + "</dd>" +
+      "<dt>Tube sealed</dt><dd>by " + when(ph.nestEnd) + ": a mud cap closes the entrance</dd>" +
+      "<dt>Inside</dt><dd>young bees grow over summer and sleep in cocoons through winter</dd>" +
+      "<dt>New bees out</dt><dd>" + when(ph.next) + ", next year</dd>" +
+      "<dt>Nest lets go</dt><dd>" + (isFinite(r.release) ? when(relDay) + ", about " + r.release.toFixed(0) + " months after installing" : "more than 2 years: the fuse may be too thick here") + "</dd>" +
+      "</dl>" +
+      '<div class="calendar" aria-hidden="true">' + cal + '</div><div class="cal-lab" aria-hidden="true">' + lab + "</div>" +
+      '<div class="legend"><span><i style="background:var(--ink)"></i>bees nesting</span><span><i style="background:var(--line-strong)"></i>young inside</span><span><i style="background:var(--muted)"></i>new bees emerge</span></div>' +
+      (early ? "<p><strong>Note:</strong> in this climate the fuse may let go before the new bees are out. If the tube falls early, leave it where it lies; the bees can still get out.</p>" : "") +
+      foot + "</article>" +
+      // 2 Install
+      '<article class="gp">' + top(2, "Install") +
+      "<h3>Put it in the ground</h3>" +
+      "<ol>" +
+      "<li><strong>Pick the spot.</strong> Sunny in the morning, facing south-east, out of strong wind. Flowers within about 300 m, and bare, damp clay soil nearby: the bees build their walls from mud.</li>" +
+      "<li><strong>Push the stake in</strong> until the fuse bulb sits just under the soil. The soil line is where the bulb meets the bend.</li>" +
+      "<li><strong>Bend the joint by hand</strong> to 90°, slowly, until the nest tube is level.</li>" +
+      "<li><strong>Point the entrance</strong> south-east, tilted very slightly down so rain runs out.</li>" +
+      "<li><strong>Press the soil</strong> firmly around the stake. Water it once if the ground is dry.</li>" +
+      "<li><strong>Take a photo</strong> and start your Straw Story (optional).</li>" +
+      "</ol>" +
+      "<p>Don't move the straw once it's in. The timer works because the fuse stays in the same soil.</p>" +
+      foot + "</article>" +
+      // 3 Check-ins
+      '<article class="gp">' + top(3, "Check-ins") +
+      "<h3>What to look for, and when</h3>" +
+      '<dl class="when">' +
+      "<dt>" + when(installDay) + "</dt><dd><strong>Installed.</strong> Photo of the straw in place.</dd>" +
+      "<dt>" + when(ph.emerge) + " → " + when(ph.nestEnd) + "</dt><dd><strong>Once a week.</strong> Bees going in and out? Pollen or mud at the entrance?</dd>" +
+      "<dt>" + when(ph.nestEnd) + "</dt><dd><strong>Sealed.</strong> A mud cap closes the tube. Photo of the cap.</dd>" +
+      "<dt>Month 3 and 6</dt><dd><strong>Standing?</strong> Photo from the side, so we can see the angle.</dd>" +
+      "<dt>Winter</dt><dd><strong>After hard frost or storms.</strong> Still standing? Leave it alone.</dd>" +
+      "<dt>" + when(ph.next) + "</dt><dd><strong>New bees out.</strong> Holes in the mud cap mean they made it.</dd>" +
+      "<dt>" + (isFinite(r.release) ? when(relDay) : "Later") + "</dt><dd><strong>Let go.</strong> Photo of the tube on the ground, and the date it fell.</dd>" +
+      "</dl>" +
+      "<p>Each check-in takes three taps and an optional photo in your Straw Story. Every upload helps us predict decay better for places like yours.</p>" +
+      foot + "</article>" +
+      // 4 End of life
+      '<article class="gp">' + top(4, "The end") +
+      "<h3>When it lets go</h3>" +
+      "<p>The fuse just under the soil slowly wears away in the damp ground. When it is gone, the nest tube tips over onto the soil.</p>" +
+      "<ul>" +
+      "<li><strong>Leave it where it falls.</strong> On the ground the tube is in soil contact too, and breaks down over the following seasons.</li>" +
+      "<li><strong>Nothing to collect.</strong> allPHA is made by microbes and is broken down by microbes in soil.</li>" +
+      "<li><strong>Fell early?</strong> If the new bees aren't out yet, lay the tube in a sheltered spot with the entrance free. Tell us in your story: it helps fix the timing.</li>" +
+      "<li><strong>Still standing at month 16?</strong> Note it in your story. Your soil may be drier or colder than the model thought.</li>" +
+      "</ul>" +
+      "<h3>Next season</h3>" +
+      "<p>Print a new straw for next spring and put it in a fresh spot a few metres away. A fresh nest each year is what keeps mites and mould from building up.</p>" +
+      foot + "</article>";
+  }
+  $("guide-pdf").addEventListener("click", function () { renderGuide(); window.print(); });
 
   // ---------- Printers
   // height: max build height (mm); the straw is ~281 mm, so shorter printers print it in two push-fit parts.

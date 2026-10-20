@@ -122,7 +122,8 @@
           </dl>
           <p class="muted" id="tune-note" style="font-size:.88rem"></p>
           <label for="install-month" class="muted" style="font-size:.9rem">When will you install it?</label>
-          <select id="install-month"><option value="1">February</option><option value="2" selected>March</option><option value="3">April</option></select>
+          <select id="install-month"><option value="0">January</option><option value="1">February</option><option value="2" selected>March</option><option value="3">April</option><option value="4">May</option></select>
+          <p class="muted" id="install-hint" style="font-size:.85rem"></p>
         </div>
         <div class="card">
           <span class="label">Your printer</span>
@@ -140,10 +141,19 @@
         <div class="card">
           <span class="label">Get your straw</span>
           <button class="btn" type="button" data-signin="Sign in to download your print file and install guide.">Download print file</button>
-          <p class="muted" style="font-size:.85rem">Includes the install guide: how deep, which way to face it, and how to bend it.</p>
+          <a class="btn secondary" href="#guide">See your install guide</a>
+          <p class="muted" style="font-size:.85rem">The install guide is made for your pin: when to install, what to look for and when, and what happens at the end.</p>
         </div>
       </div>
     </div>
+
+    <section class="guide" id="guide" aria-labelledby="guide-title">
+      <div class="guide-head">
+        <div style="display:grid;gap:8px"><span class="label">Your install guide</span><h2 id="guide-title">One season with your straw</h2><p class="muted" id="guide-sub"></p></div>
+        <button class="btn secondary" type="button" id="guide-pdf">Save as PDF</button>
+      </div>
+      <div class="guide-pages" id="guide-pages"></div>
+    </section>
   </section>
 
   <!-- COMMUNITY -->

@@ -164,6 +164,37 @@ input[type=range] { width: 100%; accent-color: var(--ink); }
 .ch-line { fill: none; stroke: var(--ink); stroke-width: 2; }
 .ch-dot { fill: var(--bg); stroke: var(--ink); stroke-width: 2; }
 
+/* Install guide (pamphlet) */
+.guide { display: grid; gap: 20px; scroll-margin-top: 80px; }
+.guide-head { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; align-items: end; }
+.guide-pages { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 20px; }
+.gp { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 24px; display: grid; gap: 12px; align-content: start; min-height: 520px; max-width: 100%; min-width: 0; }
+.gp-top { display: flex; justify-content: space-between; gap: 8px; font: 0.68rem var(--f-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--ink); padding-bottom: 8px; }
+.gp h3 { font-size: 1.25rem; letter-spacing: -0.01em; }
+.gp p, .gp li { font-size: 0.86rem; line-height: 1.5; }
+.gp ol, .gp ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.gp .when { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 0.86rem; margin: 0; }
+.gp .when dt { font-family: var(--f-mono); font-size: 0.74rem; color: var(--muted); padding-top: 2px; }
+.gp .when dd { margin: 0; }
+.gp .calendar { display: grid; grid-template-columns: repeat(14, minmax(0, 1fr)); gap: 2px; }
+.gp .calendar span { height: 20px; border-radius: 2px; background: var(--surface); border: 1px solid var(--line); }
+.gp .calendar span.nest { background: var(--ink); border-color: var(--ink); }
+.gp .calendar span.dev { background: var(--line-strong); }
+.gp .calendar span.emerge { background: var(--muted); }
+.gp .cal-lab { display: grid; grid-template-columns: repeat(14, minmax(0, 1fr)); gap: 2px; font: 0.6rem var(--f-mono); color: var(--muted); text-align: center; }
+.gp .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 0.74rem; color: var(--muted); }
+.gp .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; border: 1px solid var(--line); }
+.gp .foot { margin-top: auto; font: 0.66rem var(--f-mono); color: var(--muted); }
+@media print {
+  @page { size: A5; margin: 12mm; }
+  body { background: #fff; color: #101218; }
+  .site-header, .site-footer, body::before, dialog, .view > :not(.guide), .guide-head { display: none !important; }
+  main.wrap, .view { display: block; padding: 0; max-width: none; }
+  .guide-pages { display: block; }
+  .gp { border: 0; padding: 0; min-height: 0; break-after: page; }
+  .gp:last-child { break-after: auto; }
+}
+
 /* Community */
 .feedhead { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; align-items: end; }
 .stories { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 20px; }
