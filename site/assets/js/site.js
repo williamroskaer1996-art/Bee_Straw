@@ -97,16 +97,78 @@
       im.src = "assets/img/ae/" + id + ".jpg"; im.alt = ""; im.loading = "lazy";
       tiles.appendChild(im);
     });
-    // Weather: 12 monthly bars of rain (dark) and wet-soil days (grey), example values
-    const rain = [70, 55, 60, 45, 55, 65, 80, 85, 75, 85, 85, 75], wet = [26, 23, 22, 15, 10, 7, 6, 7, 11, 18, 24, 27];
-    let w = '<g class="d-grid"><line x1="30" y1="220" x2="390" y2="220"/></g>';
-    "JFMAMJJASOND".split("").forEach((m, i) => {
-      const x = 36 + i * 29;
-      w += '<rect class="d-bar" x="' + x + '" y="' + (220 - rain[i] * 1.6) + '" width="11" height="' + rain[i] * 1.6 + '"/>';
-      w += '<rect class="d-bar wet" x="' + (x + 12) + '" y="' + (220 - wet[i] * 4.5) + '" width="11" height="' + wet[i] * 4.5 + '"/>';
-      w += '<text class="d-lab" x="' + (x + 11) + '" y="238" text-anchor="middle">' + m + "</text>";
+    // Slide 1: satellite tiles around De Bilt (same imagery as the Build map), loaded when the section comes near.
+    const map = document.getElementById("hiw-map");
+    const PIN = { lat: 52.1, lon: 5.18 }, Z = 17, T = 100, CX = 200, CY = 150; // tile size in view units; pin tip at (CX, CY)
+    function drawMap() {
+      const n = Math.pow(2, Z), xf = (PIN.lon + 180) / 360 * n;
+      const yf = (1 - Math.asinh(Math.tan(PIN.lat * Math.PI / 180)) / Math.PI) / 2 * n;
+      const mPerUnit = 40075016.7 * Math.cos(PIN.lat * Math.PI / 180) / n / T;
+      let h = '<g class="m-img">';
+      for (let tx = Math.floor(xf - CX / T); tx <= Math.floor(xf + (400 - CX) / T); tx++)
+        for (let ty = Math.floor(yf - CY / T); ty <= Math.floor(yf + (260 - CY) / T); ty++)
+          h += '<image href="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/' + Z + "/" + ty + "/" + tx +
+            '" x="' + (CX + (tx - xf) * T).toFixed(2) + '" y="' + (CY + (ty - yf) * T).toFixed(2) + '" width="' + (T + 0.4) + '" height="' + (T + 0.4) + '" preserveAspectRatio="none"/>';
+      h += '</g><g class="m-grid">';
+      for (let x = 40; x < 400; x += 80) h += '<line x1="' + x + '" y1="0" x2="' + x + '" y2="260"/>';
+      for (let y = 30; y < 260; y += 80) h += '<line x1="0" y1="' + y + '" x2="400" y2="' + y + '"/>';
+      const bar = 100 / mPerUnit; // 100 m
+      h += '</g><g class="m-scale"><rect x="14" y="226" width="' + (bar + 46).toFixed(1) + '" height="20" rx="3"/><line x1="22" y1="240" x2="' + (22 + bar).toFixed(1) + '" y2="240"/><line x1="22" y1="235" x2="22" y2="240"/><line x1="' + (22 + bar).toFixed(1) + '" y1="235" x2="' + (22 + bar).toFixed(1) + '" y2="240"/><text x="' + (28 + bar).toFixed(1) + '" y="241">100 m</text></g>';
+      h += '<text class="m-attr" x="384" y="249" text-anchor="end">Imagery © Esri</text>';
+      h += '<circle class="m-ring" cx="' + CX + '" cy="' + CY + '" r="22"/>';
+      h += '<g class="m-pin"><ellipse class="m-shadow" cx="' + CX + '" cy="' + CY + '" rx="7" ry="2.5"/><path class="m-drop" d="M' + CX + " " + CY + " C" + (CX - 3) + " " + (CY - 9) + " " + (CX - 12) + " " + (CY - 16) + " " + (CX - 12) + " " + (CY - 26) +
+        " A12 12 0 1 1 " + (CX + 12) + " " + (CY - 26) + " C" + (CX + 12) + " " + (CY - 16) + " " + (CX + 3) + " " + (CY - 9) + " " + CX + " " + CY + 'Z"/><circle class="m-dot" cx="' + CX + '" cy="' + (CY - 26) + '" r="4.5"/></g>';
+      h += '<g class="m-lab"><line x1="' + (CX + 12) + '" y1="' + (CY - 32) + '" x2="' + (CX + 36) + '" y2="' + (CY - 62) + '"/><rect x="' + (CX + 28) + '" y="' + (CY - 84) + '" width="156" height="22" rx="3"/><text x="' + (CX + 36) + '" y="' + (CY - 69) + '">52.1000° N · 5.1800° E</text></g>';
+      map.innerHTML = h;
+    }
+    if ("IntersectionObserver" in window) {
+      let drawn = false;
+      new IntersectionObserver(function (es, io) {
+        es.forEach(function (e) {
+          if (!e.isIntersecting) return;
+          if (!drawn) { drawn = true; drawMap(); }
+          if (e.intersectionRatio > 0.5) { requestAnimationFrame(() => map.classList.add("in")); io.disconnect(); }
+        });
+      }, { rootMargin: "300px 0px", threshold: [0, 0.6] }).observe(map);
+    } else { drawMap(); map.classList.add("in"); }
+
+    // Slide 3: the monthly inputs of the decay model. Live De Bilt data if Build already cached it in this browser,
+    // otherwise the example De Bilt climate (same formula as build.js).
+    let months = null, live = false;
+    try {
+      const keys = Object.keys(localStorage).filter((k) => k.indexOf("beestraw-ref-v2-") === 0).sort();
+      const c = keys.length ? JSON.parse(localStorage.getItem(keys[keys.length - 1])) : null;
+      if (c && c.months && c.months.length === 12) { months = c.months; live = true; }
+    } catch (e) { /* storage blocked */ }
+    if (!months) months = Array.from({ length: 12 }, (_, m) => ({
+      t: 10.6 + 7.0 * Math.cos((2 * Math.PI * (m - 6.5)) / 12),
+      wet: Math.min(0.95, Math.max(0.05, 0.62 + 0.15 * Math.cos((2 * Math.PI * (m - 0.5)) / 12)))
+    }));
+    const rate = (t) => (t <= 4 ? 0 : 0.6 * Math.pow(2, (t - 25) / 10)); // µm/day at wet soil (build.js)
+    const X0 = 46, X1 = 356, Y0 = 46, Y1 = 186, TMAX = 25;
+    const mx = (i) => X0 + (i + 0.5) * (X1 - X0) / 12, ty = (t) => Y1 - Math.max(0, t) / TMAX * (Y1 - Y0), wy = (f) => Y1 - f * (Y1 - Y0);
+    let w = '<g class="c-grid">';
+    [0, 5, 10, 15, 20, 25].forEach((t) => { w += '<line x1="' + X0 + '" y1="' + ty(t) + '" x2="' + X1 + '" y2="' + ty(t) + '"/><text class="d-lab" x="' + (X0 - 6) + '" y="' + (ty(t) + 3.5) + '" text-anchor="end">' + t + "</text>"; });
+    [0, 50, 100].forEach((f) => { w += '<text class="d-lab" x="' + (X1 + 6) + '" y="' + (wy(f / 100) + 3.5) + '">' + f + "</text>"; });
+    w += '</g><line class="c-axis" x1="' + X0 + '" y1="' + Y1 + '" x2="' + X1 + '" y2="' + Y1 + '"/>';
+    w += '<text class="d-lab" x="' + (X0 - 6) + '" y="' + (Y0 - 12) + '" text-anchor="end">°C</text><text class="d-lab" x="' + (X1 + 6) + '" y="' + (Y0 - 12) + '">% wet</text>';
+    // 4 °C: no wear below
+    w += '<line class="c-cold" x1="' + X0 + '" y1="' + ty(4) + '" x2="' + X1 + '" y2="' + ty(4) + '"/><text class="d-lab c-note" x="' + mx(6) + '" y="' + (ty(4) + 13) + '" text-anchor="middle">4 °C · no wear below</text>';
+    const line = (fn) => months.map((m, i) => (i ? "L" : "M") + mx(i).toFixed(1) + " " + fn(m).toFixed(1)).join(" ");
+    w += '<path class="c-wet" d="' + line((m) => wy(m.wet)) + '"/>';
+    w += '<path class="c-temp" d="' + line((m) => ty(m.t)) + '"/>';
+    months.forEach((m, i) => { w += '<circle class="c-wetpt" cx="' + mx(i).toFixed(1) + '" cy="' + wy(m.wet).toFixed(1) + '" r="2.6"/><circle class="c-tpt" cx="' + mx(i).toFixed(1) + '" cy="' + ty(m.t).toFixed(1) + '" r="2.6"/>'; });
+    // Wear strip: warm × wet, relative to the busiest month
+    const wear = months.map((m) => rate(m.t) * m.wet), top = Math.max.apply(null, wear) || 1, cw = (X1 - X0) / 12;
+    "JFMAMJJASOND".split("").forEach((c, i) => {
+      w += '<text class="d-lab" x="' + mx(i).toFixed(1) + '" y="' + (Y1 + 14) + '" text-anchor="middle">' + c + "</text>";
+      w += '<rect class="c-wear" x="' + (X0 + i * cw + 1).toFixed(1) + '" y="' + (Y1 + 24) + '" width="' + (cw - 2).toFixed(1) + '" height="10" style="opacity:' + (0.08 + 0.92 * wear[i] / top).toFixed(2) + '"/>';
     });
-    w += '<rect class="d-bar" x="36" y="22" width="10" height="10"/><text class="d-lab" x="52" y="31">rain (mm)</text><rect class="d-bar wet" x="140" y="22" width="10" height="10"/><text class="d-lab" x="156" y="31">days the soil is wet</text>';
+    w += '<text class="d-lab" x="' + (X0 - 6) + '" y="' + (Y1 + 33) + '" text-anchor="end">wear</text>';
+    // Legend and source
+    w += '<line class="c-temp" x1="' + X0 + '" y1="18" x2="' + (X0 + 18) + '" y2="18"/><text class="d-lab" x="' + (X0 + 24) + '" y="21.5">soil temp. 0–7 cm</text>';
+    w += '<line class="c-wet" x1="' + (X0 + 160) + '" y1="18" x2="' + (X0 + 178) + '" y2="18"/><text class="d-lab" x="' + (X0 + 184) + '" y="21.5">wet days</text>';
+    w += '<text class="d-lab c-src" x="' + X1 + '" y="' + (Y1 + 58) + '" text-anchor="end">' + (live ? "Open-Meteo · De Bilt · 5-year monthly means" : "Example climate · De Bilt · model input") + "</text>";
     document.getElementById("hiw-weather").innerHTML = w;
   }
 
