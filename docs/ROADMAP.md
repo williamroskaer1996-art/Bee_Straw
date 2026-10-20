@@ -33,6 +33,15 @@ Height probably has a big effect on whether bees move in [to verify]. The curren
   - 100 % allPHA (R8) rules out a wooden stake unless that requirement changes;
   - the stem is sun-exposed, so the UV wall-thickness rule (1.6–2 mm) applies.
 
+## On hold: photoreal bee
+
+Noted 20 Oct 2026. The home-page bee is drawn in code for now (calm version). Goal: photoreal, in the spirit of Nothing's site; a honeybee is fine.
+
+- Keep the code for the movement; swap the drawing for five short top-down clips with transparency: fly (loop), land, walk (loop), rest and groom (loop), take off.
+- Source: AI video (Kling image-to-video, first and last frame the same for loops; Veo 3 as backup), all started from one still image on a #00FF00 background. Later, our own macro footage in spring 2027.
+- Either William generates the clips, or Claude runs them through Weave once the Figma account is linked to Weave (each run costs Weave credits and needs approval).
+- Processing: key out the green, make the loops seamless, export WebM VP9 with alpha plus HEVC with alpha for Safari, with a fallback (about 1–2 MB in total).
+
 ## Polish list (small interactions, for the end)
 
 Fixed on 20 Oct 2026: address suggestions while typing; no map jump when placing a pin; crosshair and closed-hand cursors; sharper satellite tiles on high-density screens; "Use my location"; suggestion list no longer hidden under the map controls on phones.
