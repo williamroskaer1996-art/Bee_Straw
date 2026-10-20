@@ -20,6 +20,8 @@ Then, before downloading:
 
 Material and time can come straight from the G-code generator: it already knows every toolpath, its extrusion and its feed rate.
 
+**Started 20 Oct 2026:** Build now has a slicer-style print preview (`site/assets/js/slicer.js`, `slicer-worker.js`): the printer's plate in 3D, toolpaths coloured by zone, a layer slider, filament, weight and time. It reads G-code, but for now the G-code comes from a simplified JavaScript stand-in for the generator (same zones, line widths and layer heights; no printer settings), labelled as an illustration. Next: feed it the real generator's G-code, and design the push-fit split for printers under 285 mm (now shown as two parts split above the bend joint).
+
 ## Nest height above the ground
 
 Height probably has a big effect on whether bees move in [to verify]. The current bee straw holds the nest tube just above the soil line, with the fuse just under it.
@@ -32,6 +34,15 @@ Height probably has a big effect on whether bees move in [to verify]. The curren
   - a taller part is harder to print, so it may be split into push-fit pieces (requirement R1);
   - 100 % allPHA (R8) rules out a wooden stake unless that requirement changes;
   - the stem is sun-exposed, so the UV wall-thickness rule (1.6–2 mm) applies.
+
+## On hold: photoreal bee
+
+Noted 20 Oct 2026. The home-page bee is drawn in code for now (calm version). Goal: photoreal, in the spirit of Nothing's site; a honeybee is fine.
+
+- Keep the code for the movement; swap the drawing for five short top-down clips with transparency: fly (loop), land, walk (loop), rest and groom (loop), take off.
+- Source: AI video (Kling image-to-video, first and last frame the same for loops; Veo 3 as backup), all started from one still image on a #00FF00 background. Later, our own macro footage in spring 2027.
+- Either William generates the clips, or Claude runs them through Weave once the Figma account is linked to Weave (each run costs Weave credits and needs approval).
+- Processing: key out the green, make the loops seamless, export WebM VP9 with alpha plus HEVC with alpha for Safari, with a fallback (about 1–2 MB in total).
 
 ## Polish list (small interactions, for the end)
 

@@ -234,51 +234,51 @@
       const tp = spotPos(B.spot);
       let tx = tp.x, ty = tp.y;
       if (B.orbit && B.orbit.t < 1) { // one loose loop before approaching
-        B.orbit.t += dt / 1.8;
+        B.orbit.t += dt / 3.4;
         const a = B.orbit.t * Math.PI * 2;
-        tx = tp.x + Math.cos(a) * 90 * sc; ty = tp.y - 70 * sc + Math.sin(a) * 55 * sc;
+        tx = tp.x + Math.cos(a) * 110 * sc; ty = Math.max(60, tp.y - 80 * sc + Math.sin(a) * 60 * sc); // stay on screen
       }
       const dx = tx - B.x, dy = ty - B.y, d = Math.hypot(dx, dy);
-      const maxV = 420 * sc, arrive = 140 * sc;
+      const maxV = 190 * sc, arrive = 170 * sc;
       const want = d < arrive && !(B.orbit && B.orbit.t < 1) ? maxV * (d / arrive) : maxV;
       // organic wobble across the direction of travel
-      const nx = -dy / (d || 1), ny = dx / (d || 1), wob = Math.sin(B.time * 7.3) * 60 + Math.sin(B.time * 3.1) * 40;
+      const nx = -dy / (d || 1), ny = dx / (d || 1), wob = Math.sin(B.time * 2.6) * 26 + Math.sin(B.time * 1.1) * 18;
       const dvx = (dx / (d || 1)) * want + nx * wob * Math.min(1, d / 120) - B.vx;
       const dvy = (dy / (d || 1)) * want + ny * wob * Math.min(1, d / 120) - B.vy;
-      const acc = 5.5;
+      const acc = 2.2;
       B.vx += dvx * Math.min(1, acc * dt); B.vy += dvy * Math.min(1, acc * dt);
       B.x += B.vx * dt; B.y += B.vy * dt;
       const sp = Math.hypot(B.vx, B.vy);
-      if (sp > 20) B.heading = lerpAngle(B.heading, Math.atan2(B.vy, B.vx), Math.min(1, 6 * dt));
-      B.z += ((d < 40 ? 6 + d * 0.4 : 40) - B.z) * Math.min(1, 3 * dt);
+      if (sp > 20) B.heading = lerpAngle(B.heading, Math.atan2(B.vy, B.vx), Math.min(1, 2.5 * dt));
+      B.z += ((d < 40 ? 6 + d * 0.4 : 40) - B.z) * Math.min(1, 1.5 * dt);
       B.wingsOut = Math.min(1, B.wingsOut + dt * 6);
-      if (d < 4 * sc + 2 && !(B.orbit && B.orbit.t < 1)) { B.mode = "land"; B.timer = 0.45; }
+      if (d < 4 * sc + 2 && !(B.orbit && B.orbit.t < 1)) { B.mode = "land"; B.timer = 0.9; }
     } else if (B.mode === "land") {
       B.timer -= dt; const tp = spotPos(B.spot);
-      B.x += (tp.x - B.x) * Math.min(1, 10 * dt); B.y += (tp.y - B.y) * Math.min(1, 10 * dt);
-      B.vx = B.vy = 0; B.z += (0 - B.z) * Math.min(1, 9 * dt);
+      B.x += (tp.x - B.x) * Math.min(1, 5 * dt); B.y += (tp.y - B.y) * Math.min(1, 5 * dt);
+      B.vx = B.vy = 0; B.z += (0 - B.z) * Math.min(1, 5 * dt);
       if (B.timer <= 0) { B.z = 0; B.wingsOut = 0; settle(); next(); }
     } else if (B.mode === "walk") {
       const p = spotPos(B.spot), t = B.walkTarget;
       const tx = p.rect.left + p.rect.width * t.fx, ty = p.rect.top + p.rect.height * t.fy;
       B.x = p.x; B.y = p.y;
       const dx = tx - B.x, dy = ty - B.y, d = Math.hypot(dx, dy);
-      B.heading = lerpAngle(B.heading, Math.atan2(dy, dx), Math.min(1, 4 * dt));
-      const v = 26 * sc;
+      B.heading = lerpAngle(B.heading, Math.atan2(dy, dx), Math.min(1, 2 * dt));
+      const v = 14 * sc;
       B.walkTime -= dt;
       if (d > 1.5 && B.walkTime > 0) {
         // step straight at the target; the heading only follows for the look (no circling)
         const k = Math.min(v * dt, d) / d, mx = dx * k, my = dy * k;
         B.spot.fx += mx / p.rect.width; B.spot.fy += my / p.rect.height;
-        B.walking = Math.min(1, B.walking + dt * 5); B.gait += dt * 16;
+        B.walking = Math.min(1, B.walking + dt * 3); B.gait += dt * 9;
       } else { B.walking = Math.max(0, B.walking - dt * 5); B.timer -= dt; if (B.timer <= 0) next(); }
       const q = spotPos(B.spot); B.x = q.x; B.y = q.y;
     } else if (B.mode === "rest") {
       const p = spotPos(B.spot); B.x = p.x; B.y = p.y;
       B.walking = Math.max(0, B.walking - dt * 5);
       B.nextGroom -= dt;
-      if (B.nextGroom <= 0 && B.groom === 0) { B.groom = 1; B.groomTime = 1.3; }
-      if (B.groom) { B.groomPhase += dt * 14; B.groomTime -= dt; if (B.groomTime <= 0) { B.groom = 0; B.nextGroom = 3 + Math.random() * 3; } }
+      if (B.nextGroom <= 0 && B.groom === 0) { B.groom = 1; B.groomTime = 2.2; }
+      if (B.groom) { B.groomPhase += dt * 8; B.groomTime -= dt; if (B.groomTime <= 0) { B.groom = 0; B.nextGroom = 5 + Math.random() * 4; } }
       if (B.timer > 0) { B.timer -= dt; if (B.timer <= 0) next(); }
       // a pointer coming close makes her take off
       if (Math.hypot(pointer.x - B.x, pointer.y - B.y) < 70 * sc && flees < 6) {
@@ -298,8 +298,8 @@
     if (!n) { B.mode = "rest"; B.timer = 0; return; }
     if (n.mode === "fly") { B.wingsOut = 1; flyTo(n.spot, { orbit: n.orbit }); }
     else if (n.mode === "walk") {
-      B.mode = "walk"; B.timer = 0.6; B.walkTime = 6;
-      B.walkTarget = { fx: Math.min(0.85, Math.max(0.15, B.spot.fx + (Math.random() - 0.5) * 0.4)), fy: Math.min(0.85, Math.max(0.15, B.spot.fy + (Math.random() - 0.5) * 0.4)) };
+      B.mode = "walk"; B.timer = 1.2; B.walkTime = 9;
+      B.walkTarget = { fx: Math.min(0.85, Math.max(0.15, B.spot.fx + (Math.random() - 0.5) * 0.25)), fy: Math.min(0.85, Math.max(0.15, B.spot.fy + (Math.random() - 0.5) * 0.25)) };
     } else if (n.mode === "rest") { B.mode = "rest"; B.timer = n.time || 0; }
   }
   const lerpAngle = (a, b, t) => { let d = ((b - a + Math.PI * 3) % (Math.PI * 2)) - Math.PI; return a + d * t; };
@@ -333,10 +333,10 @@
     if (reduce.matches || seen) { restOnButton(); wake(); return; }
     try { sessionStorage.setItem("beestraw-bee", "1"); } catch (e) { /* storage blocked */ }
     const r = mosaic.getBoundingClientRect();
-    B.x = vw + 50; B.y = Math.max(80, Math.min(vh - 80, r.top + 60)); B.vx = -300; B.vy = 40; B.heading = Math.PI; B.z = 40;
+    B.x = vw + 50; B.y = Math.max(80, Math.min(vh - 80, r.top + 60)); B.vx = -170; B.vy = 20; B.heading = Math.PI; B.z = 40;
     B.plan = small()
       ? [{ mode: "fly", spot: spotOnButton() }, { mode: "rest" }]
-      : [{ mode: "fly", spot: spotOnMosaic(true) }, { mode: "walk" }, { mode: "walk" }, { mode: "rest", time: 1.2 }, { mode: "fly", spot: spotOnButton(), orbit: true }, { mode: "rest" }];
+      : [{ mode: "fly", spot: spotOnMosaic(true) }, { mode: "walk" }, { mode: "walk" }, { mode: "rest", time: 2.5 }, { mode: "fly", spot: spotOnButton(), orbit: true }, { mode: "rest" }];
     next();
     wake();
   }

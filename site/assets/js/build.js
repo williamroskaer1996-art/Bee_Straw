@@ -644,6 +644,7 @@
     $("decay-month").max = 18;
     setMonth(+$("decay-month").value);
     renderGuide();
+    if (window.BeeSlicer && isFinite(state.result.line)) window.BeeSlicer.update({ fuseLine: state.result.line });
   }
 
   // Chart: fuse left (%) over 18 months
@@ -741,23 +742,24 @@
   $("guide-pdf").addEventListener("click", function () { renderGuide(); window.print(); });
 
   // ---------- Printers
-  // height: max build height (mm); the straw is ~281 mm, so shorter printers print it in two push-fit parts.
+  // height: max build height (mm); bed: build plate X × Y (mm); the straw is ~281 mm, so shorter printers print it in two push-fit parts.
   const PRINTERS = [
-    { id: "um-s5", name: "Ultimaker S5", fw: "Ultimaker (Griffin)", fil: 2.85, height: 300, file: ".gcode", tested: true },
-    { id: "prusa-mk4", name: "Prusa MK4 / MK4S", fw: "Prusa (Marlin)", fil: 1.75, height: 220, file: ".bgcode" },
-    { id: "prusa-core1", name: "Prusa Core One", fw: "Prusa (Marlin)", fil: 1.75, height: 270, file: ".bgcode" },
-    { id: "bambu-x1", name: "Bambu Lab X1 / P1S", fw: "Bambu", fil: 1.75, height: 250, file: ".gcode.3mf" },
-    { id: "bambu-a1", name: "Bambu Lab A1", fw: "Bambu", fil: 1.75, height: 256, file: ".gcode.3mf" },
-    { id: "ender3v3", name: "Creality Ender-3 V3", fw: "Marlin", fil: 1.75, height: 250, file: ".gcode" },
-    { id: "k1", name: "Creality K1", fw: "Klipper", fil: 1.75, height: 250, file: ".gcode" },
-    { id: "neptune4", name: "Elegoo Neptune 4", fw: "Klipper", fil: 1.75, height: 265, file: ".gcode" },
-    { id: "voron24", name: "Voron 2.4 (350)", fw: "Klipper", fil: 1.75, height: 340, file: ".gcode" }
+    { id: "um-s5", name: "Ultimaker S5", fw: "Ultimaker (Griffin)", fil: 2.85, height: 300, bed: [330, 240], file: ".gcode", tested: true },
+    { id: "prusa-mk4", name: "Prusa MK4 / MK4S", fw: "Prusa (Marlin)", fil: 1.75, height: 220, bed: [250, 210], file: ".bgcode" },
+    { id: "prusa-core1", name: "Prusa Core One", fw: "Prusa (Marlin)", fil: 1.75, height: 270, bed: [250, 220], file: ".bgcode" },
+    { id: "bambu-x1", name: "Bambu Lab X1 / P1S", fw: "Bambu", fil: 1.75, height: 250, bed: [256, 256], file: ".gcode.3mf" },
+    { id: "bambu-a1", name: "Bambu Lab A1", fw: "Bambu", fil: 1.75, height: 256, bed: [256, 256], file: ".gcode.3mf" },
+    { id: "ender3v3", name: "Creality Ender-3 V3", fw: "Marlin", fil: 1.75, height: 250, bed: [220, 220], file: ".gcode" },
+    { id: "k1", name: "Creality K1", fw: "Klipper", fil: 1.75, height: 250, bed: [220, 220], file: ".gcode" },
+    { id: "neptune4", name: "Elegoo Neptune 4", fw: "Klipper", fil: 1.75, height: 265, bed: [225, 225], file: ".gcode" },
+    { id: "voron24", name: "Voron 2.4 (350)", fw: "Klipper", fil: 1.75, height: 340, bed: [350, 350], file: ".gcode" }
   ];
   const sel = $("printer");
   sel.innerHTML = '<option value="">Choose your printer</option>' + PRINTERS.map((p) => '<option value="' + p.id + '">' + p.name + (p.tested ? " (tested)" : "") + "</option>").join("") + '<option value="other">My printer isn’t listed</option>';
   sel.addEventListener("change", function () {
     const p = PRINTERS.find((x) => x.id === sel.value);
     $("flow-printer").classList.toggle("on", !!sel.value);
+    if (window.BeeSlicer) window.BeeSlicer.update({ printer: p || PRINTERS[0] });
     if (!p) {
       $("printer-kv").hidden = true;
       $("printer-note").textContent = sel.value === "other" ? "Tell us which printer you have. Printer profiles come from the community." : "";
