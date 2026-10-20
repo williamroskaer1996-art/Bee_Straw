@@ -24,7 +24,13 @@ Live weather (Open-Meteo) starts working here: it needs no key. Open-Meteo is fr
 
 What is stored: a first name (from Google) or "Beekeeper", straws with their location **rounded to 0.01° (about 1 km)**, check-ins, comments and photos. Email addresses are never shown on the site.
 
-## 3. AlphaEarth (Google Earth Engine)
+## 3. AlphaEarth
+
+**Works out of the box.** The site reads the AlphaEarth Foundations Satellite Embedding dataset (2025) straight from its public mirror on [Source Cooperative](https://source.coop/tge-labs/aef) (cloud-optimised GeoTIFFs, CC BY 4.0), in the visitor's browser, with geotiff.js. Only the three colour bands for a 640 m square around the pin are downloaded, about 2 MB. `site/assets/data/aef-europe-2025.json` lists which file covers which part of Europe; rebuild it for a new year with `tools/build_aef_index.py`.
+
+The Earth Engine connector below is **optional**: use it for the full-Europe map layer or the 64 AlphaEarth values at a pin, which are too heavy to read in the browser.
+
+### Optional: Earth Engine connector
 
 AlphaEarth data can only be read through Google Earth Engine, so the site asks a small connector for it: `earth-engine/alphaearth-function/`. It returns the AlphaEarth image around a pin (640 × 640 m, 10 m pixels), the 64 AlphaEarth numbers at the pin, and a map layer. Earth Engine is free for research, education and non-profit use.
 
@@ -50,6 +56,7 @@ The site then shows the real fingerprint in **Your site** and adds an **AlphaEar
 | Photon (komoot, OpenStreetMap data) | Address suggestions while typing | Free, fair use. Run our own Photon or switch to Google Places if traffic grows. |
 | SoilGrids (ISRIC) | Topsoil clay, sand and silt | Free, often slow (15–60 s); answers are cached per ~1 km in the visitor's browser. |
 | Esri World Imagery | Satellite map tiles | See step 4 below. |
+| Source Cooperative (AlphaEarth mirror) | AlphaEarth fingerprint for the pin | Public, free, CC BY 4.0; read in pieces with HTTP range requests. |
 
 ## 4. Map
 

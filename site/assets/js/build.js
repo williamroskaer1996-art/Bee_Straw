@@ -505,35 +505,93 @@
   }
   function setStatus(t) { $("site-status").textContent = t; }
 
-  // AlphaEarth fingerprint of the area around the pin, from the Earth Engine connector.
-  // Without the connector a generated placeholder is shown and labelled as such.
+  // AlphaEarth fingerprint of the area around the pin.
+  // Order: the Earth Engine connector if configured, otherwise the public dataset read in the browser
+  // (alphaearth.js), otherwise a generated placeholder that is labelled as such.
+  let aeOverlay = null, aeControl = null, aeVisible = false;
+  function drawFingerprint(canvas, data) {
+    const tmp = document.createElement("canvas");
+    tmp.width = data.size; tmp.height = data.size;
+    tmp.getContext("2d").putImageData(new ImageData(data.rgba, data.size, data.size), 0, 0);
+    const ctx = canvas.getContext("2d");
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(tmp, 0, 0, canvas.width, canvas.height);
+    const k = canvas.width / data.size, cx = (data.pin.x + 0.5) * k, cy = (data.pin.y + 0.5) * k;
+    ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2; ctx.strokeRect(cx - 4, cy - 4, 8, 8);
+    ctx.strokeStyle = "#101218"; ctx.lineWidth = 1; ctx.strokeRect(cx - 5.5, cy - 5.5, 11, 11);
+    return tmp.toDataURL("image/png");
+  }
+  function showAlphaEarthOnMap(url, bounds) {
+    if (!lmap || !window.L) return;
+    if (aeOverlay) aeOverlay.remove();
+    aeOverlay = L.imageOverlay(url, bounds, { opacity: 0.8, className: "ae-overlay", interactive: false });
+    if (!aeControl) {
+      const Ctl = L.Control.extend({
+        onAdd: function () {
+          const b = L.DomUtil.create("button", "ae-toggle");
+          b.type = "button"; b.textContent = "Show AlphaEarth";
+          b.setAttribute("aria-pressed", "false");
+          L.DomEvent.disableClickPropagation(b);
+          L.DomEvent.on(b, "click", function () {
+            aeVisible = !aeVisible;
+            b.setAttribute("aria-pressed", String(aeVisible));
+            b.textContent = aeVisible ? "Hide AlphaEarth" : "Show AlphaEarth";
+            if (aeOverlay) { if (aeVisible) aeOverlay.addTo(lmap); else aeOverlay.remove(); }
+          });
+          return b;
+        }
+      });
+      aeControl = new Ctl({ position: "topright" }).addTo(lmap);
+    }
+    if (aeVisible) aeOverlay.addTo(lmap);
+  }
   function loadFingerprint(lat, lon, token) {
     const canvas = $("site-tile"), note = $("site-tile-note");
-    const placeholder = function () {
+    const placeholder = function (why) {
       if (window.BeeTiles) window.BeeTiles.drawTile(canvas, Math.round((lat * 1000 + lon * 37) * 7) >>> 0, true);
-      note.textContent = "AlphaEarth fingerprint of your place. Placeholder image until the Earth Engine connector is switched on.";
+      note.textContent = why || "AlphaEarth fingerprint of your place. Placeholder image: the AlphaEarth data couldn't be loaded.";
+      if (aeOverlay) { aeOverlay.remove(); aeOverlay = null; }
     };
-    if (!CFG.alphaEarthEndpoint) { placeholder(); return; }
-    note.textContent = "Reading AlphaEarth…";
-    fetch(CFG.alphaEarthEndpoint + "?lat=" + lat.toFixed(5) + "&lon=" + lon.toFixed(5))
-      .then((r) => r.json())
-      .then(function (d) {
-        if (token !== placeToken) return;
-        if (!d.png) throw new Error(d.error || "no image");
-        const img = new Image();
-        img.onload = function () {
-          const ctx = canvas.getContext("2d");
-          ctx.imageSmoothingEnabled = false;
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2;
-          ctx.strokeRect(canvas.width / 2 - 3, canvas.height / 2 - 3, 6, 6);
-        };
-        img.src = d.png;
-        state.embedding = d.vector || null;
-        note.textContent = "AlphaEarth " + d.year + ": " + d.sizeMeters + " × " + d.sizeMeters + " m around your pin, each pixel 10 m. Colours show 3 of the 64 numbers that describe each square.";
-      })
-      .catch(function () { if (token === placeToken) placeholder(); });
+    const caption = (year, metres) => "AlphaEarth " + year + ": " + metres + " × " + metres + " m around your pin, each square 10 m. Colours show 3 of the 64 numbers that describe each square.";
+    if (CFG.alphaEarthEndpoint) {
+      note.textContent = "Reading AlphaEarth…";
+      fetch(CFG.alphaEarthEndpoint + "?lat=" + lat.toFixed(5) + "&lon=" + lon.toFixed(5))
+        .then((r) => r.json())
+        .then(function (d) {
+          if (token !== placeToken) return;
+          if (!d.png) throw new Error(d.error || "no image");
+          const img = new Image();
+          img.onload = function () {
+            const ctx = canvas.getContext("2d");
+            ctx.imageSmoothingEnabled = false;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2;
+            ctx.strokeRect(canvas.width / 2 - 3, canvas.height / 2 - 3, 6, 6);
+          };
+          img.src = d.png;
+          state.embedding = d.vector || null;
+          note.textContent = caption(d.year, d.sizeMeters);
+        })
+        .catch(function () { if (token === placeToken) placeholder(); });
+      return;
+    }
+    if (!window.BeeAlphaEarth) { placeholder(); return; }
+    // Grey "loading" state until the real data arrives (a few seconds, ~2 MB).
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = getComputedStyle(document.body).getPropertyValue("--surface") || "#f4f5f8";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    note.textContent = "Reading AlphaEarth for this spot… (about 2 MB, a few seconds)";
+    window.BeeAlphaEarth.fingerprint(lat, lon).then(function (d) {
+      if (token !== placeToken) return;
+      const url = drawFingerprint(canvas, d);
+      note.textContent = caption(d.year, d.metres);
+      showAlphaEarthOnMap(url, d.bounds);
+    }).catch(function (e) {
+      if (token !== placeToken) return;
+      placeholder(/no data/.test(e.message) ? e.message + " Placeholder image." : null);
+    });
   }
 
   // ---------- Render site card + decay
@@ -665,86 +723,20 @@
     return Math.max(0, Math.min(4, Math.floor(phenology(c).install / DAYS_PER_MONTH)));
   }
   function renderGuide() {
-    const c = state.climate, r = state.result, site = state.site; if (!c || !r) return;
+    const c = state.climate, r = state.result, site = state.site; if (!c || !r || !window.BeeGuide) return;
     const ph = phenology(c);
     const installDay = Math.max(ph.install, state.install * DAYS_PER_MONTH);
-    const relDay = installDay + (isFinite(r.release) ? r.release * DAYS_PER_MONTH : 999);
-    const early = relDay < ph.next;
-    const species = site.lat < 46
-      ? "Red mason bee (<i>Osmia bicornis</i>) and the horned mason bee (<i>Osmia cornuta</i>), which flies a few weeks earlier"
-      : "Red mason bee (<i>Osmia bicornis</i>)";
-    $("guide-sub").textContent = "Made for " + site.name + " (" + fmtCoord(site.lat, site.lon) + "). Dates are estimates from your climate" + (state.source === "live" ? "." : " (example climate in this preview).");
-
-    // Calendar: 14 months from the install month
-    const startM = Math.floor(installDay / DAYS_PER_MONTH) % 12;
-    let cal = "", lab = "";
-    for (let k = 0; k < 14; k++) {
-      const mi = Math.floor(installDay / DAYS_PER_MONTH) + k, a0 = mi * DAYS_PER_MONTH, a1 = a0 + DAYS_PER_MONTH;
-      const overlaps = (x0, x1) => x0 < a1 && x1 > a0;
-      const cls = overlaps(ph.next, ph.next + 30) ? "emerge" : overlaps(ph.emerge, ph.nestEnd) ? "nest" : overlaps(ph.nestEnd, ph.next) ? "dev" : "";
-      cal += '<span class="' + cls + '"></span>';
-      lab += "<span>" + SHORT[(startM + k) % 12] + "</span>";
-    }
-    const top = (n, t) => '<div class="gp-top"><span>Bee Straw · install guide</span><span>' + n + " / 4 · " + t + "</span></div>";
-    const foot = '<p class="foot">' + esc(site.name) + " · " + fmtCoord(site.lat, site.lon) + " · dates are model estimates, uncalibrated</p>";
-
-    $("guide-pages").innerHTML =
-      // 1 Overview
-      '<article class="gp">' + top(1, "Your year") +
-      "<h3>Your straw at " + esc(site.name) + "</h3>" +
-      "<p>For: " + species + ". These bees fly in spring, lay eggs in tubes, and their young stay inside until next spring.</p>" +
-      '<dl class="when">' +
-      "<dt>Install by</dt><dd><strong>" + when(installDay) + "</strong>, before the first bees fly</dd>" +
-      "<dt>Bees fly</dt><dd>" + when(ph.emerge) + " to " + when(ph.nestEnd) + "</dd>" +
-      "<dt>Tube sealed</dt><dd>by " + when(ph.nestEnd) + ": a mud cap closes the entrance</dd>" +
-      "<dt>Inside</dt><dd>young bees grow over summer and sleep in cocoons through winter</dd>" +
-      "<dt>New bees out</dt><dd>" + when(ph.next) + ", next year</dd>" +
-      "<dt>Nest lets go</dt><dd>" + (isFinite(r.release) ? when(relDay) + ", about " + r.release.toFixed(0) + " months after installing" : "more than 2 years: the fuse may be too thick here") + "</dd>" +
-      "</dl>" +
-      '<div class="calendar" aria-hidden="true">' + cal + '</div><div class="cal-lab" aria-hidden="true">' + lab + "</div>" +
-      '<div class="legend"><span><i style="background:var(--ink)"></i>bees nesting</span><span><i style="background:var(--line-strong)"></i>young inside</span><span><i style="background:var(--muted)"></i>new bees emerge</span></div>' +
-      (early ? "<p><strong>Note:</strong> in this climate the fuse may let go before the new bees are out. If the tube falls early, leave it where it lies; the bees can still get out.</p>" : "") +
-      foot + "</article>" +
-      // 2 Install
-      '<article class="gp">' + top(2, "Install") +
-      "<h3>Put it in the ground</h3>" +
-      "<ol>" +
-      "<li><strong>Pick the spot.</strong> Sunny in the morning, facing south-east, out of strong wind. Flowers within about 300 m, and bare, damp clay soil nearby: the bees build their walls from mud.</li>" +
-      "<li><strong>Push the stake in</strong> until the fuse bulb sits just under the soil. The soil line is where the bulb meets the bend.</li>" +
-      "<li><strong>Bend the joint by hand</strong> to 90°, slowly, until the nest tube is level.</li>" +
-      "<li><strong>Point the entrance</strong> south-east, tilted very slightly down so rain runs out.</li>" +
-      "<li><strong>Press the soil</strong> firmly around the stake. Water it once if the ground is dry.</li>" +
-      "<li><strong>Take a photo</strong> and start your Straw Story (optional).</li>" +
-      "</ol>" +
-      "<p>Don't move the straw once it's in. The timer works because the fuse stays in the same soil.</p>" +
-      foot + "</article>" +
-      // 3 Check-ins
-      '<article class="gp">' + top(3, "Check-ins") +
-      "<h3>What to look for, and when</h3>" +
-      '<dl class="when">' +
-      "<dt>" + when(installDay) + "</dt><dd><strong>Installed.</strong> Photo of the straw in place.</dd>" +
-      "<dt>" + when(ph.emerge) + " → " + when(ph.nestEnd) + "</dt><dd><strong>Once a week.</strong> Bees going in and out? Pollen or mud at the entrance?</dd>" +
-      "<dt>" + when(ph.nestEnd) + "</dt><dd><strong>Sealed.</strong> A mud cap closes the tube. Photo of the cap.</dd>" +
-      "<dt>Month 3 and 6</dt><dd><strong>Standing?</strong> Photo from the side, so we can see the angle.</dd>" +
-      "<dt>Winter</dt><dd><strong>After hard frost or storms.</strong> Still standing? Leave it alone.</dd>" +
-      "<dt>" + when(ph.next) + "</dt><dd><strong>New bees out.</strong> Holes in the mud cap mean they made it.</dd>" +
-      "<dt>" + (isFinite(r.release) ? when(relDay) : "Later") + "</dt><dd><strong>Let go.</strong> Photo of the tube on the ground, and the date it fell.</dd>" +
-      "</dl>" +
-      "<p>Each check-in takes three taps and an optional photo in your Straw Story. Every upload helps us predict decay better for places like yours.</p>" +
-      foot + "</article>" +
-      // 4 End of life
-      '<article class="gp">' + top(4, "The end") +
-      "<h3>When it lets go</h3>" +
-      "<p>The fuse just under the soil slowly wears away in the damp ground. When it is gone, the nest tube tips over onto the soil.</p>" +
-      "<ul>" +
-      "<li><strong>Leave it where it falls.</strong> On the ground the tube is in soil contact too, and breaks down over the following seasons.</li>" +
-      "<li><strong>Nothing to collect.</strong> allPHA is made by microbes and is broken down by microbes in soil.</li>" +
-      "<li><strong>Fell early?</strong> If the new bees aren't out yet, lay the tube in a sheltered spot with the entrance free. Tell us in your story: it helps fix the timing.</li>" +
-      "<li><strong>Still standing at month 16?</strong> Note it in your story. Your soil may be drier or colder than the model thought.</li>" +
-      "</ul>" +
-      "<h3>Next season</h3>" +
-      "<p>Print a new straw for next spring and put it in a fresh spot a few metres away. A fresh nest each year is what keeps mites and mould from building up.</p>" +
-      foot + "</article>";
+    const relDay = isFinite(r.release) ? installDay + r.release * DAYS_PER_MONTH : Infinity;
+    $("guide-sub").textContent = "Made for " + site.name + ". Dates are estimates from your climate" + (state.source === "live" ? "." : " (example climate here).");
+    window.BeeGuide.render($("guide-pages"), {
+      place: site.name, coord: fmtCoord(site.lat, site.lon),
+      species: site.lat < 46
+        ? "For the red mason bee (<i>Osmia bicornis</i>) and the horned mason bee (<i>O. cornuta</i>), which flies a few weeks earlier."
+        : "For the red mason bee (<i>Osmia bicornis</i>).",
+      install: installDay, emerge: ph.emerge, nestEnd: ph.nestEnd, next: ph.next,
+      relDay: isFinite(relDay) ? relDay : ph.next + 60, releaseMonths: r.release,
+      early: isFinite(relDay) && relDay < ph.next, example: state.source !== "live"
+    });
   }
   $("guide-pdf").addEventListener("click", function () { renderGuide(); window.print(); });
 
