@@ -20,6 +20,8 @@ Then, before downloading:
 
 Material and time can come straight from the G-code generator: it already knows every toolpath, its extrusion and its feed rate.
 
+**Started 20 Oct 2026:** Build now has a slicer-style print preview (`site/assets/js/slicer.js`, `slicer-worker.js`): the printer's plate in 3D, toolpaths coloured by zone, a layer slider, filament, weight and time. It reads G-code, but for now the G-code comes from a simplified JavaScript stand-in for the generator (same zones, line widths and layer heights; no printer settings), labelled as an illustration. Next: feed it the real generator's G-code, and design the push-fit split for printers under 285 mm (now shown as two parts split above the bend joint).
+
 ## Nest height above the ground
 
 Height probably has a big effect on whether bees move in [to verify]. The current bee straw holds the nest tube just above the soil line, with the fuse just under it.
