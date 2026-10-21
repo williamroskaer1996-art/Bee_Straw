@@ -116,11 +116,14 @@
       <span class="label">Build your straw</span>
       <h1 id="build-title" style="font-size:clamp(1.8rem,4vw,2.6rem)">Where will your straw live?</h1>
       <p class="muted">Drop a pin exactly where you'll push the straw into the ground. Everything below updates for that spot.</p>
-      <div class="flowbar" aria-label="Steps"><span class="on">1 Place</span><span id="flow-site">2 Your site</span><span id="flow-preview">3 Preview</span><span id="flow-printer">4 Printer</span><span>5 Download</span></div>
     </div>
 
+    <nav class="flowbar" id="flowbar" aria-label="Steps">
+      <a href="#step-place" class="on" data-step="step-place">1 Place</a><a href="#step-site" id="flow-site" data-step="step-site">2 Your site</a><a href="#step-decay" id="flow-preview" data-step="step-decay">3 Decay</a><a href="#step-print" id="flow-printer" data-step="step-print">4 Printer</a><a href="#step-get" data-step="step-get">5 Download</a>
+    </nav>
+
     <div class="build-grid">
-      <div class="section" style="gap:12px">
+      <div class="section build-step" id="step-place" style="gap:12px">
         <form class="search" id="build-search" role="search">
           <div class="combo">
             <label class="sr-only" for="address">Address or town</label>
@@ -133,7 +136,7 @@
         <p class="muted map-hint" id="map-hint">Click or tap the map to place your pin. Drag to move around, and drag the pin to fine-tune it.</p>
         <div class="map" id="build-map"></div>
       </div>
-      <div class="card">
+      <div class="card build-step" id="step-site">
         <span class="label">Your site</span>
         <div class="site-chain">
           <canvas id="site-tile" width="112" height="112" role="img" aria-label="AlphaEarth fingerprint of this place (placeholder)"></canvas>
@@ -145,8 +148,8 @@
     </div>
 
     <div class="build-grid">
-      <div class="card">
-        <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center"><span class="label">Preview + decay</span><span class="tag">Model output · uncalibrated</span></div>
+      <div class="card build-step" id="step-decay">
+        <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center"><span class="label">Decay</span><span class="tag">Model output · uncalibrated</span></div>
         <figure class="sim">
           <video id="sim-video" muted playsinline preload="auto" poster="assets/video/fuse-decay-poster.jpg" aria-label="Simulated cutaway of the fuse in the soil wearing away, month by month">
             <source src="assets/video/fuse-decay.webm" type="video/webm"><source src="assets/video/fuse-decay.mp4" type="video/mp4">
@@ -159,20 +162,32 @@
         <svg id="decay-chart" class="chart" viewBox="0 0 420 150" role="img" aria-label="Share of the fuse left over 18 months"></svg>
         <p class="muted" style="font-size:.85rem">The animation is our decay simulation of the fuse (engine 0.3.1, De Bilt weather, where it lets go at 13 months), sped up or slowed down to match the estimate for your pin. The chart is a simple estimate from published PHA decay rates in wet soil and your weather. Real soils can be several times faster or slower until they are measured.</p>
       </div>
-      <div class="section" style="gap:20px;align-content:start">
-        <div class="card">
-          <span class="label">Tuned for your site</span>
+      <div class="card" id="dates-card">
+        <span class="label">Your dates</span>
+        <dl class="kv dates">
+          <dt>Install</dt><dd id="date-install">–</dd>
+          <dt>Bees nest</dt><dd id="date-nest">–</dd>
+          <dt>New bees out</dt><dd id="date-out">–</dd>
+          <dt>Lets go</dt><dd id="date-release">–</dd>
+        </dl>
+        <p class="muted" id="tune-note" style="font-size:.88rem"></p>
+        <label for="install-month" class="muted" style="font-size:.9rem">When will you install it?</label>
+        <select id="install-month"><option value="0">January</option><option value="1">February</option><option value="2" selected>March</option><option value="3">April</option><option value="4">May</option></select>
+        <p class="muted" id="install-hint" style="font-size:.85rem"></p>
+        <details class="more">
+          <summary>How the fuse is tuned</summary>
           <dl class="kv">
             <dt>Fuse line width</dt><dd id="tune-line">–</dd>
-            <dt>Expected release</dt><dd id="tune-release">–</dd>
-            <dt>Standard straw would release at</dt><dd id="tune-std">–</dd>
+            <dt>Lets go after</dt><dd id="tune-release">–</dd>
+            <dt>Standard straw would let go after</dt><dd id="tune-std">–</dd>
           </dl>
-          <p class="muted" id="tune-note" style="font-size:.88rem"></p>
           <p class="muted" id="tune-cal" style="font-size:.8rem"></p>
-          <label for="install-month" class="muted" style="font-size:.9rem">When will you install it?</label>
-          <select id="install-month"><option value="0">January</option><option value="1">February</option><option value="2" selected>March</option><option value="3">April</option><option value="4">May</option></select>
-          <p class="muted" id="install-hint" style="font-size:.85rem"></p>
-        </div>
+        </details>
+      </div>
+    </div>
+
+    <div class="section build-step" id="step-print" style="gap:20px">
+      <div class="build-grid">
         <div class="card">
           <span class="label">Your printer</span>
           <label for="printer" class="muted" style="font-size:.9rem">Every print setting is done for you.</label>
@@ -186,38 +201,43 @@
           <p class="muted" style="font-size:.9rem">100 % PHA, the material the straw is designed for. Sold in 1.75 mm and 2.85 mm. <span id="material-diam"></span> Dry it at 70 °C for 6–9 hours before printing.</p>
           <a class="btn secondary" href="https://colorfabb.com/filaments/materials/pha-filaments/allpha" target="_blank" rel="noopener">Get allPHA from colorFabb</a>
         </div>
-        <div class="card">
-          <span class="label">Get your straw</span>
-          <button class="btn" type="button" data-signin="Sign in to download your print file and install guide." data-action="download">Download print file</button>
-          <button class="btn secondary" type="button" data-signin="Sign in to start your Straw Story." data-action="create-story">Start your Straw Story</button>
-          <p class="muted" id="get-status" role="status" style="font-size:.85rem"></p>
-          <a class="btn secondary" href="#guide">See your install guide</a>
-          <p class="muted" style="font-size:.85rem">The install guide is made for your pin: when to install, what to look for and when, and what happens at the end.</p>
-        </div>
       </div>
+      <section class="card slicer" id="slicer" aria-labelledby="slicer-title">
+        <div class="slicer-head">
+          <div style="display:grid;gap:6px"><span class="label">Print preview</span><h2 id="slicer-title">Your straw on the build plate</h2></div>
+          <span class="tag">Illustration · not the final print file</span>
+        </div>
+        <div class="slicer-view" id="slicer-view">
+          <canvas id="slicer-canvas" role="img" aria-label="3D preview of the straw's toolpaths on your printer's build plate. Drag to turn, scroll or pinch to zoom."></canvas>
+          <p class="slicer-status mono" id="slicer-status" role="status">Preview loads when you scroll here.</p>
+          <span class="slicer-hint mono" aria-hidden="true">Drag to turn · scroll to zoom</span>
+        </div>
+        <label for="slicer-layer" class="readout"><span>Layer <strong id="slicer-layer-n">–</strong></span><span id="slicer-layer-z" class="muted mono"></span></label>
+        <input id="slicer-layer" type="range" min="1" max="1" value="1" disabled>
+        <ul class="slicer-legend" aria-label="Colours">
+          <li><i style="background:color-mix(in srgb, var(--ink) 70%, var(--bg))"></i>Outer wall</li><li><i style="background:var(--muted)"></i>Inner walls, nest bottom</li>
+          <li><i style="background:var(--focus)"></i>Bend joint: one 0.25 mm line</li><li><i style="background:var(--straw)"></i>Fuse: gyroid lines</li>
+          <li><i style="background:var(--line-strong)"></i>Brim</li><li><i style="background:#e5484d"></i>Current layer</li>
+        </ul>
+        <dl class="kv" id="slicer-kv"></dl>
+        <p class="muted" id="slicer-split" style="font-size:.85rem" hidden>Your printer is shorter than the straw, so it prints in two parts here, split above the bend joint. The push-fit joint between them is not designed yet.</p>
+        <p class="muted" style="font-size:.85rem">Printed upright with the entrance on the bed, no supports. These toolpaths come from a simplified version of our generator: the same zones, line widths and layer heights, but no printer settings. Your real print file replaces it once the generator is ported. Filament and time are estimates.</p>
+      </section>
     </div>
 
-    <section class="card slicer" id="slicer" aria-labelledby="slicer-title">
-      <div class="slicer-head">
-        <div style="display:grid;gap:6px"><span class="label">Print preview</span><h2 id="slicer-title">Your straw on the build plate</h2></div>
-        <span class="tag">Illustration · not the final print file</span>
+    <div class="card build-step get" id="step-get">
+      <div style="display:grid;gap:8px">
+        <span class="label">Get your straw</span>
+        <h2 class="get-title">Your print file is coming soon</h2>
+        <p class="muted">We're turning our tested generator into one that writes a file for every printer. The preview above shows what you'll print.</p>
       </div>
-      <div class="slicer-view" id="slicer-view">
-        <canvas id="slicer-canvas" role="img" aria-label="3D preview of the straw's toolpaths on your printer's build plate. Drag to turn, scroll or pinch to zoom."></canvas>
-        <p class="slicer-status mono" id="slicer-status" role="status">Preview loads when you scroll here.</p>
-        <span class="slicer-hint mono" aria-hidden="true">Drag to turn · scroll to zoom</span>
+      <div class="get-actions">
+        <button class="btn" type="button" data-signin="Sign in and we'll email you as soon as the print file for your printer is ready." data-action="download">Email me when it's ready</button>
+        <button class="btn secondary" type="button" data-signin="Sign in to start your Straw Story." data-action="create-story">Start your Straw Story</button>
+        <a class="btn secondary" href="#guide">See your install guide</a>
+        <p class="muted" id="get-status" role="status" style="font-size:.85rem"></p>
       </div>
-      <label for="slicer-layer" class="readout"><span>Layer <strong id="slicer-layer-n">–</strong></span><span id="slicer-layer-z" class="muted mono"></span></label>
-      <input id="slicer-layer" type="range" min="1" max="1" value="1" disabled>
-      <ul class="slicer-legend" aria-label="Colours">
-        <li><i style="background:color-mix(in srgb, var(--ink) 70%, var(--bg))"></i>Outer wall</li><li><i style="background:var(--muted)"></i>Inner walls, nest bottom</li>
-        <li><i style="background:var(--focus)"></i>Bend joint: one 0.25 mm line</li><li><i style="background:var(--straw)"></i>Fuse: gyroid lines</li>
-        <li><i style="background:var(--line-strong)"></i>Brim</li><li><i style="background:#e5484d"></i>Current layer</li>
-      </ul>
-      <dl class="kv" id="slicer-kv"></dl>
-      <p class="muted" id="slicer-split" style="font-size:.85rem" hidden>Your printer is shorter than the straw, so it prints in two parts here, split above the bend joint. The push-fit joint between them is not designed yet.</p>
-      <p class="muted" style="font-size:.85rem">Printed upright with the entrance on the bed, no supports. These toolpaths come from a simplified version of our generator: the same zones, line widths and layer heights, but no printer settings. Your real print file replaces it once the generator is ported. Filament and time are estimates.</p>
-    </section>
+    </div>
 
     <section class="guide" id="guide" aria-labelledby="guide-title">
       <div class="guide-head">

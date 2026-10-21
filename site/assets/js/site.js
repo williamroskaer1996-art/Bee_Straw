@@ -172,6 +172,32 @@
     document.getElementById("hiw-weather").innerHTML = w;
   }
 
+  // ---- Build step bar: sticks under the header, jumps to each step and marks the one in view.
+  const header = document.querySelector(".site-header");
+  const setHeaderH = () => document.documentElement.style.setProperty("--hdr", (header ? header.offsetHeight : 0) + "px");
+  setHeaderH(); addEventListener("resize", setHeaderH);
+  const flow = document.getElementById("flowbar");
+  if (flow) {
+    const steps = Array.from(flow.querySelectorAll("a[data-step]"));
+    flow.addEventListener("click", function (e) {
+      const a = e.target.closest("a[data-step]"); if (!a) return;
+      e.preventDefault(); // keep #build in the address bar
+      const t = document.getElementById(a.dataset.step);
+      if (t) t.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+    });
+    let ticking = false;
+    const markCurrent = function () {
+      ticking = false;
+      let cur = steps[0];
+      if (flow.offsetParent === null) return; // Build is hidden: nothing to measure
+      steps.forEach(function (a) { const t = document.getElementById(a.dataset.step); if (t && t.getBoundingClientRect().top < innerHeight * 0.45) cur = a; });
+      steps.forEach(function (a) { if (a === cur) a.setAttribute("aria-current", "step"); else a.removeAttribute("aria-current"); });
+    };
+    addEventListener("scroll", function () { if (!ticking) { ticking = true; requestAnimationFrame(markCurrent); } }, { passive: true });
+    markCurrent();
+    new MutationObserver(function () { requestAnimationFrame(markCurrent); }).observe(flow.closest("[data-view]"), { attributes: true, attributeFilter: ["hidden"] });
+  }
+
   // ---- Routing: #home, #about, #build, #community
   const views = Array.from(document.querySelectorAll("[data-view]"));
   const links = Array.from(document.querySelectorAll(".site-nav a"));
