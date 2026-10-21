@@ -668,31 +668,24 @@
     state.chartX = x; state.chartY = y;
   }
 
-  // Straw drawing at month m (stand-in until the simulation animation is added)
+  // Decay simulation video (straw_fuse study, engine 0.3.1, De Bilt): 49 frames, months 0–24 in half-month steps,
+  // the fuse lets go at 13.0 months. Mapped onto this site's estimate so both let go at the same month.
+  const SIM = { fps: 8, perMonth: 2, release: 13, last: 24 };
+  const simVideo = $("sim-video");
   function setMonth(m) {
     state.month = m;
     const r = state.result; if (!r) return;
     const f = remaining(m), gone = m >= r.release;
-    const tilt = gone ? Math.min(32, (m - r.release + 1) * 12) : 0;
-    const sw = (0.6 + 2.2 * f).toFixed(2), op = (0.25 + 0.75 * f).toFixed(2);
-    let gy = "";
-    for (let k = -3; k <= 3; k++) gy += '<path d="M' + (140 + k * 5) + ' 134 q 6 7 0 14 q -6 7 0 14" class="st-gyroid" stroke-width="' + (sw / 2).toFixed(2) + '" opacity="' + op + '"/>';
-    $("straw").innerHTML =
-      '<rect class="st-soil" x="0" y="140" width="420" height="80"/><line class="st-soil-line" x1="0" y1="140" x2="420" y2="140"/>' +
-      '<text class="st-lab" x="8" y="134">soil line</text>' +
-      '<path class="st-part" d="M134 210 L140 222 L146 210 L146 166 L134 166 Z"/><text class="st-lab" x="156" y="204">stake</text>' +
-      '<circle class="st-fuse" cx="140" cy="148" r="15" stroke-width="' + sw + '" opacity="' + op + '"' + (f < 1 ? ' stroke-dasharray="4 3"' : "") + "/>" + gy +
-      '<text class="st-lab accent" x="160" y="162">fuse · ' + Math.round(f * 100) + " % left</text>" +
-      '<g transform="rotate(' + -tilt + ' 140 132)">' +
-      '<path class="st-part" d="M134 132 L134 112 Q134 100 146 100 L150 100"/><path class="st-part" d="M146 132 L146 116 Q146 112 150 112"/>' +
-      '<rect class="st-tube" x="150" y="100" width="210" height="12" rx="3"/><line class="st-bore" x1="154" y1="106" x2="356" y2="106"/>' +
-      '<text class="st-lab" x="170" y="92">nest tube · 15 cm · bore Ø8</text><text class="st-lab" x="320" y="128">entrance</text></g>';
+    const simM = Math.min(SIM.last, m * SIM.release / (isFinite(r.release) ? r.release : 30));
+    if (simVideo && simVideo.readyState >= 1) simVideo.currentTime = (Math.round(simM * SIM.perMonth) + 0.5) / SIM.fps;
+    $("sim-month").textContent = "month " + m + (gone ? " · let go" : "");
     $("decay-label").textContent = m;
     $("decay-state").textContent = m === 0 ? "Installed" : gone ? "Released: the nest has let go" : m >= 11 ? "Fuse is thin, release is near" : m <= 4 ? "Nesting season" : "Bees develop inside";
     const dot = $("ch-dot");
     if (dot && state.chartX) { dot.setAttribute("cx", state.chartX(m)); dot.setAttribute("cy", state.chartY(f)); }
   }
   $("decay-month").addEventListener("input", (e) => setMonth(+e.target.value));
+  if (simVideo) simVideo.addEventListener("loadedmetadata", () => setMonth(state.month || 0));
   $("install-month").addEventListener("change", function (e) { state.install = +e.target.value; if (state.climate) render(); });
 
 
