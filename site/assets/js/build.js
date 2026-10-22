@@ -64,6 +64,7 @@
   // Live pins are compared with live De Bilt weather (same source, same years, same wet rule);
   // example climates with the example De Bilt climate.
   const DE_BILT = { lat: 52.10, lon: 5.18 };
+  const PIN_KEY = "beestraw-pin"; // last pin, remembered in this browser
   let reference = null; // live De Bilt climate, once loaded
   function calibration(startMonth, source) {
     const months = source === "live" && reference ? reference.months : exampleMonths(EXAMPLES[0]);
@@ -408,6 +409,7 @@
     state.autoInstall = true;
     movePin(lat, lon, !!(opts && opts.zoom));
     state.site = { lat: lat, lon: lon, name: name || "Your pin" };
+    try { localStorage.setItem(PIN_KEY, JSON.stringify(state.site)); } catch (e) { /* storage blocked */ }
     $("site-name").textContent = state.site.name;
     $("site-coord").textContent = Math.abs(lat).toFixed(5) + "° " + (lat >= 0 ? "N" : "S") + " · " + Math.abs(lon).toFixed(5) + "° " + (lon >= 0 ? "E" : "W");
     loadFingerprint(lat, lon, token);
@@ -632,6 +634,12 @@
     const rel = releaseMonth(cum, threshold);
     state.result = { cum: cum, threshold: threshold, release: rel, line: line, std: std, clamped: clamped };
 
+    // Your dates, in the same words as the install guide
+    const ph = phenology(c), installDay = Math.max(ph.install, state.install * DAYS_PER_MONTH), relDay = installDay + rel * DAYS_PER_MONTH;
+    $("date-install").textContent = when(installDay);
+    $("date-nest").textContent = when(ph.emerge) + " → " + when(ph.nestEnd);
+    $("date-out").textContent = when(ph.next) + ", next year";
+    $("date-release").textContent = isFinite(rel) ? when(relDay) + (relDay >= 365 ? ", next year" : "") + " · about " + Math.round(rel) + " months" : "may stand longer than 2 years";
     $("tune-line").textContent = line.toFixed(2) + " mm";
     $("tune-release").textContent = isFinite(rel) ? "~" + rel.toFixed(1) + " months" : "over 24 months";
     $("tune-std").textContent = isFinite(std) ? std.toFixed(1) + " months" : "over 24 months";
@@ -721,7 +729,7 @@
     const ph = phenology(c);
     const installDay = Math.max(ph.install, state.install * DAYS_PER_MONTH);
     const relDay = isFinite(r.release) ? installDay + r.release * DAYS_PER_MONTH : Infinity;
-    $("guide-sub").textContent = "Made for " + site.name + ". Dates are estimates from your climate" + (state.source === "live" ? "." : " (example climate here).");
+    $("guide-sub").textContent = "Made for " + (site.name === "Your pin" ? "your pin" : site.name) + ". Dates are estimates from your climate" + (state.source === "live" ? "." : " (example climate here).");
     window.BeeGuide.render($("guide-pages"), {
       place: site.name, coord: fmtCoord(site.lat, site.lon),
       species: site.lat < 46
@@ -770,8 +778,13 @@
   // ---------- Actions that need an account (see auth.js)
   const AUTH = window.BeeAuth;
   if (AUTH) {
-    AUTH.actions.download = function () {
-      $("get-status").textContent = "Print files are on their way: we're turning our tested generator into one that writes files for every printer. Start your Straw Story and we'll let you know when yours is ready.";
+    AUTH.actions.download = function (user) {
+      if (!AUTH.client) { $("get-status").textContent = "Preview: accounts are not switched on yet, so we can't save this."; return; }
+      const p = PRINTERS.find((x) => x.id === sel.value);
+      AUTH.client.from("print_file_requests").upsert({ printer: p ? p.name : null }).then(function (r) {
+        $("get-status").textContent = r.error ? "Couldn't save: " + r.error.message
+          : "Done. We'll email " + (user && user.email ? user.email : "you") + " when the print file" + (p ? " for the " + p.name : "") + " is ready.";
+      });
     };
     AUTH.actions["create-story"] = function () {
       if (!AUTH.client || !state.site || !state.result) { $("get-status").textContent = "Preview: accounts are not switched on yet, so stories can't be saved."; return; }
@@ -796,11 +809,34 @@
   }
 
   // ---------- Start
-  loadGoogle().then(initGoogle)
-    .catch(function () { return loadLeaflet().then(initLeaflet); })
+  // The map is set up only once Build is on screen: a map made inside a hidden view measures 0 × 0 and
+  // loads almost no tiles. Later visits re-measure it.
+  const buildView = mapEl.closest("[data-view]");
+  function whenShown() {
+    return new Promise(function (resolve) {
+      if (!buildView.hidden) return resolve();
+      const mo = new MutationObserver(function () { if (!buildView.hidden) { mo.disconnect(); resolve(); } });
+      mo.observe(buildView, { attributes: true, attributeFilter: ["hidden"] });
+    });
+  }
+  new MutationObserver(function () {
+    if (buildView.hidden || !lmap) return;
+    lmap.invalidateSize();
+    if (state.site) lmap.setView([state.site.lat, state.site.lon], lmap.getZoom(), { animate: false });
+  }).observe(buildView, { attributes: true, attributeFilter: ["hidden"] });
+  // Start where the visitor last put their pin (this browser only), otherwise at De Bilt.
+  function lastPin() {
+    try {
+      const p = JSON.parse(localStorage.getItem(PIN_KEY) || "null");
+      if (p && isFinite(p.lat) && isFinite(p.lon) && Math.abs(p.lat) <= 90 && Math.abs(p.lon) <= 180) return p;
+    } catch (e) { /* storage blocked */ }
+    return null;
+  }
+  loadGoogle().then(whenShown).then(initGoogle)
+    .catch(function () { return loadLeaflet().then(whenShown).then(initLeaflet); })
     .then(addAlphaEarthLayer, initPreviewMap)
     .then(function () {
-      const e = EXAMPLES[0];
-      setPlace(e.lat, e.lon, e.name, { zoom: true });
+      const p = lastPin() || EXAMPLES[0];
+      setPlace(p.lat, p.lon, String(p.name || "Your pin").slice(0, 80), { zoom: true });
     });
 })();

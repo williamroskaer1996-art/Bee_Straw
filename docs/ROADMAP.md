@@ -48,6 +48,19 @@ Noted 20 Oct 2026. The home-page bee is drawn in code for now (calm version). Go
 
 Fixed on 20 Oct 2026: address suggestions while typing; no map jump when placing a pin; crosshair and closed-hand cursors; sharper satellite tiles on high-density screens; "Use my location"; suggestion list no longer hidden under the map controls on phones.
 
+From the heuristic evaluation (NN/g heuristics, 21 Oct 2026). Fixed: blank map when arriving from Home; Build page reordered (place → site → decay → printer and print preview → download) with a sticky step bar that jumps to each step; Download says the file is coming soon and offers "Email me when it's ready"; dates first ("Install", "Lets go") with the fuse numbers under "How the fuse is tuned"; the last pin is remembered in this browser. Decided against: replacing the How-it-works carousel, and shareable pin links.
+
+Still open from the evaluation:
+
+- The bee rests on top of the "Build your straw" label; land on the button's edge instead.
+- Mosaic place names show only on hover; show them on tap or always on phones.
+- Phone menu cuts "Community" off; shorten labels or wrap.
+- Decay chart labels are about 6 px on phones; larger labels on narrow screens.
+- "Soil map didn't answer" and the example-climate fallback need a "Try again" link.
+- A short "How the straw works" explainer and FAQ on Build (fuse, gyroid, printer not listed, drying allPHA, bending the joint, early fall).
+- Cosmetic: "nesting" overlaps the 100 % point in the chart; wide gap in the print-preview numbers; About photos.
+- Run a 5-user test with maker-gardeners ("find out when to install a straw in your garden and get the file for your printer").
+
 Still to look at:
 
 - Suggestions: show a small pin or place-type icon per row (street, town, landmark), and highlight the typed letters.

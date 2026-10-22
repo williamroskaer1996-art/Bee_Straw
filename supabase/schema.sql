@@ -64,6 +64,13 @@ create table if not exists public.comments (
   created_at timestamptz not null default now()
 );
 
+-- Print file requests ("Email me when it's ready"), private to each user ----------------------------
+create table if not exists public.print_file_requests (
+  user_id uuid primary key default auth.uid() references auth.users on delete cascade,
+  printer text check (char_length(printer) <= 60),
+  created_at timestamptz not null default now()
+);
+
 create index if not exists checkins_straw_idx on public.checkins (straw_id, created_at);
 create index if not exists comments_straw_idx on public.comments (straw_id, created_at);
 
@@ -86,6 +93,11 @@ drop policy if exists "edit own straw" on public.straws;
 create policy "edit own straw" on public.straws for update using (auth.uid() = user_id);
 drop policy if exists "delete own straw" on public.straws;
 create policy "delete own straw" on public.straws for delete using (auth.uid() = user_id);
+
+alter table public.print_file_requests enable row level security;
+drop policy if exists "own print request" on public.print_file_requests;
+create policy "own print request" on public.print_file_requests for all
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 drop policy if exists "checkins readable" on public.checkins;
 create policy "checkins readable" on public.checkins for select using (true);
