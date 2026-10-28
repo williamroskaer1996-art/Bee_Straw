@@ -1,10 +1,11 @@
-// Print preview worker: writes stand-in G-code for the straw, then reads it back into toolpaths for the viewer.
+// Print preview worker: writes stand-in G-code for the fuse section of the straw, then reads it back into
+// toolpaths for the viewer.
 //
-// The generator is a simplified JavaScript version of the course generator (gh_1_coupons.py + gh_2_gcode.py):
-// the straw is printed upright with the entrance on the bed, no supports. Zones from the bed up:
-// nest tube (Ø11, bore Ø8) → nest bottom (inner cone, closed roof) → bend joint (Ø14 bulge, 6 straw units, one thin
-// line) → tube → fuse bulb (Ø20 gyroid, cell 3 mm) → tube → stake (pointed tip). Wall = n concentric circles of width
-// W / n; joint and fuse every 0.1 mm, tubes on a 0.2 mm grid; 20-line brim. Not printable: no printer header,
+// The part: a piece of the Ø20 straw (Ø8 bore) with the fuse in the middle, printed upright: 20 mm of straw,
+// 15 mm of fuse, 20 mm of straw. Straw wall = n concentric circles of width W / n on 0.2 mm layers. The fuse is an
+// open gyroid (cell 6 mm) between the bore and the outside, one line per sheet on 0.1 mm layers, with the line
+// width graded across the diameter: thick on one side (−x), thin on the other (+x), like the course fuse
+// (fuse_final.gh: width = ww + (we − ww) · (x − (cx − D/2)) / D). 20-line brim. Not printable: no printer header,
 // temperatures, retraction or pre-flight check. The viewer only needs readG(), so real G-code drops straight in.
 "use strict";
 
@@ -12,57 +13,24 @@ const TYPES = ["WALL-OUTER", "WALL-INNER", "JOINT", "FUSE", "SKIN", "BRIM"];
 const SPEED = { "WALL-OUTER": 25, "WALL-INNER": 35, JOINT: 25, FUSE: 15, SKIN: 30, BRIM: 25 }; // mm/s
 const TRAVEL = 150, MIN_LAYER_TIME = 10, LINE = 0.4;
 
-// ---------- Geometry (mm, z from the bed = entrance)
-const RO = 5.5, RI = 4.0;                        // tube: Ø11 outside, Ø8 bore
-const NEST_END = 142, CONE_END = 146, ROOF_END = 148, J0 = 150;
-const H1 = 2 / Math.tan(50 * Math.PI / 180), H2 = 2 / Math.tan(40 * Math.PI / 180), UNIT = H1 + H2;
-const JL = 1.5 + 6 * UNIT + 1.5;                 // 45° cone out, 6 units, 45° cone in
-const TUBE1 = J0 + JL, FUSE0 = TUBE1 + 10, FUSE1 = FUSE0 + 20, STAKE0 = FUSE1 + 4, TOTAL = 281, TIP0 = TOTAL - 10;
-const SPLIT = TUBE1;                             // two-part split above the joint (push-fit joint not designed yet)
+// ---------- Geometry (mm, z from the bed)
+const RO = 10, RI = 4;                 // the whole straw: Ø20 outside, Ø8 bore
+const FUSE0 = 20, FUSE1 = 35, TOTAL = 55, CELL = 6;
 
-function zoneAt(z) {
-  if (z < NEST_END) return "nest tube";
-  if (z < ROOF_END) return "nest bottom";
-  if (z < J0) return "tube";
-  if (z < TUBE1) return "bend joint";
-  if (z < FUSE0) return "tube";
-  if (z < FUSE1) return "fuse bulb";
-  if (z < STAKE0) return "tube";
-  return "stake";
-}
-function jointR(u) {
-  if (u < 1.5) return RO + u;
-  if (u < 1.5 + 6 * UNIT) { const k = (u - 1.5) % UNIT; return k < H1 ? 7 - 2 * (k / H1) : 5 + 2 * ((k - H1) / H2); }
-  return 7 - (u - 1.5 - 6 * UNIT);
-}
-// Loops for one layer at height z of the full straw: [{type, r}] circles plus fuse polylines.
-function layerPaths(z, fuseLine) {
+function zoneAt(z) { return z < FUSE0 ? "straw (soil end)" : z < FUSE1 ? "fuse" : "straw"; }
+function layerPaths(z) {
   const out = [];
-  const wall = (ro, ri) => {
-    const W = ro - ri, n = Math.max(1, Math.round(W / LINE)), w = W / n;
-    for (let k = n - 1; k >= 0; k--) out.push({ type: k === n - 1 ? "WALL-OUTER" : "WALL-INNER", r: ri + (k + 0.5) * w, w: w });
-  };
-  if (z < NEST_END) wall(RO, RI);
-  else if (z < CONE_END) wall(RO, Math.max(0.2, RI - (z - NEST_END)));
-  else if (z < ROOF_END) { for (let r = RO - LINE / 2; r > 0.1; r -= LINE) out.push({ type: r > RO - LINE ? "WALL-OUTER" : "SKIN", r: r, w: LINE }); }
-  else if (z < J0) wall(RO, RI);
-  else if (z < TUBE1) { const w = 0.25; out.push({ type: "JOINT", r: jointR(z - J0) - w / 2, w: w }); }
-  else if (z < FUSE0) wall(RO, RI);
-  else if (z < FUSE1) {
-    const u = (z - FUSE0) / 20, R = RO + (10 - RO) * Math.pow(Math.sin(Math.PI * u), 2);
-    if (u < 0.12 || u > 0.88) wall(R, RI);       // solid where the bulb meets the pipe
-    else { out.push({ type: "WALL-INNER", r: RI + fuseLine / 2, w: fuseLine }); out.push({ type: "FUSE", gyroid: true, R: R, w: fuseLine }); }
-  } else if (z < STAKE0) wall(RO, RI);
-  else if (z < TIP0) wall(RO, RI);
-  else { const ro = RO - (RO - 0.6) * (z - TIP0) / (TOTAL - TIP0); wall(ro, Math.max(0, ro - 1.5)); }
+  if (z >= FUSE0 && z < FUSE1) { out.push({ type: "FUSE", gyroid: true }); return out; }
+  const W = RO - RI, n = Math.max(1, Math.round(W / LINE)), w = W / n;
+  for (let k = n - 1; k >= 0; k--) out.push({ type: k === n - 1 ? "WALL-OUTER" : "WALL-INNER", r: RI + (k + 0.5) * w, w: w });
   return out;
 }
-function layerHeight(z) { const zn = zoneAt(z); return zn === "bend joint" || zn === "fuse bulb" || zn === "nest bottom" ? 0.1 : 0.2; }
+function layerHeight(z) { return zoneAt(z) === "fuse" ? 0.1 : 0.2; }
 
-// Gyroid zero set (sin X cos Y + sin Y cos Z + sin Z cos X = 0, cell 3 mm) traced with marching squares on a
-// 0.2 mm grid, kept between the bore and the bulb surface, chained into polylines.
+// Gyroid zero set (sin X cos Y + sin Y cos Z + sin Z cos X = 0, cell 6 mm) traced with marching squares on a
+// 0.2 mm grid, kept between the bore and the outside, chained into polylines.
 function gyroidPolylines(z, R, rMin) {
-  const s = 2 * Math.PI / 3, h = 0.2, n = Math.ceil(R / h), N = 2 * n + 1;
+  const s = 2 * Math.PI / CELL, h = 0.2, n = Math.ceil(R / h), N = 2 * n + 1;
   const Z = z * s, sz = Math.sin(Z), cz = Math.cos(Z);
   const f = new Float32Array(N * N);
   for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
@@ -103,9 +71,8 @@ function gyroidPolylines(z, R, rMin) {
 // ---------- Writer
 function writeG(o) {
   const fil = o.printer.fil, area = Math.PI * fil * fil / 4;
-  const parts = o.split
-    ? [{ z0: 0, z1: SPLIT, x: o.cx - 22, y: o.cy }, { z0: SPLIT, z1: TOTAL, x: o.cx + 22, y: o.cy }]
-    : [{ z0: 0, z1: TOTAL, x: o.cx, y: o.cy }];
+  const parts = [{ z0: 0, z1: TOTAL, x: o.cx, y: o.cy }];
+  const widthAt = (x) => o.fuse.thick + (o.fuse.thin - o.fuse.thick) * Math.min(1, Math.max(0, (x + RO) / (2 * RO)));
   // per-part layer tops, merged into one list of print heights
   const plan = parts.map(function (p) { const zs = []; let z = 0; while (z < p.z1 - p.z0 - 1e-6) { z += layerHeight(p.z0 + z + 0.05); zs.push(+z.toFixed(2)); } return zs; });
   const heights = Array.from(new Set([].concat.apply([], plan))).sort((a, b) => a - b);
@@ -131,11 +98,11 @@ function writeG(o) {
       g.push(";ZONE:" + zoneAt(zFull));
       if (li === 0) { g.push(";TYPE:BRIM"); for (let k = 0; k < 20; k++) circle(p.x, p.y, RO + LINE * (k + 0.5), LINE, h, SPEED.BRIM, 64); }
       let type = null;
-      layerPaths(zFull, o.fuseLine).forEach(function (q) {
+      layerPaths(zFull).forEach(function (q) {
         if (q.type !== type) { type = q.type; g.push(";TYPE:" + type); }
-        if (q.gyroid) gyroidPolylines(zFull, q.R, RI + q.w).forEach(function (l) {
+        if (q.gyroid) gyroidPolylines(zFull, RO, RI + 0.1).forEach(function (l) {
           move(p.x + l[0][0], p.y + l[0][1]);
-          for (let k = 1; k < l.length; k++) extrude(p.x + l[k][0], p.y + l[k][1], q.w, h, SPEED.FUSE);
+          for (let k = 1; k < l.length; k++) extrude(p.x + l[k][0], p.y + l[k][1], widthAt((l[k - 1][0] + l[k][0]) / 2), h, SPEED.FUSE);
         });
         else circle(p.x, p.y, q.r, q.w, h, SPEED[q.type], Math.max(16, Math.min(72, Math.round(q.r * 9))));
       });
@@ -150,13 +117,15 @@ function writeG(o) {
 function readG(text, palette, light) {
   const pos = [], col = [], layerStart = [], layerZ = [], layerZone = [];
   let x = 0, y = 0, z = 0, e = 0, F = 1500, type = 0, eTotal = 0, time = 0, layerTime = 0, layerOpen = false;
+  let area = Math.PI * 1.75 * 1.75 / 4, zPrev = 0, zLayer = 0; // for line widths: filament area and layer height
   const typeIndex = {}; TYPES.forEach((t, i) => (typeIndex[t] = i));
   const closeLayer = () => { if (layerOpen) time += Math.max(MIN_LAYER_TIME, layerTime); layerTime = 0; };
   const lines = text.split("\n");
   for (let i = 0; i < lines.length; i++) {
     const L = lines[i];
     if (L.charCodeAt(0) === 59) { // ';'
-      if (L.startsWith(";LAYER:")) { closeLayer(); layerOpen = true; layerStart.push(pos.length / 6); layerZ.push(z); layerZone.push(""); }
+      if (L.startsWith(";LAYER:")) { closeLayer(); layerOpen = true; layerStart.push(pos.length / 6); layerZ.push(z); layerZone.push(""); zPrev = zLayer; }
+      else if (L.startsWith(";FILAMENT_DIAMETER:")) { const fd = parseFloat(L.slice(19)); if (fd > 0) area = Math.PI * fd * fd / 4; }
       else if (L.startsWith(";TYPE:")) { const t = L.slice(6).trim(); type = t in typeIndex ? typeIndex[t] : 1; }
       else if (L.startsWith(";ZONE:")) { const zn = L.slice(6).trim(), k = layerZone.length - 1; if (k >= 0 && layerZone[k].split(" + ").indexOf(zn) < 0) layerZone[k] += (layerZone[k] ? " + " : "") + zn; }
       continue;
@@ -173,7 +142,14 @@ function readG(text, palette, light) {
     if (ne > e + 1e-7 && d > 0) {
       eTotal += ne - e;
       if (layerZ.length) layerZ[layerZ.length - 1] = nz;
-      const p = palette[type] || palette[1];
+      zLayer = nz;
+      let p = palette[type] || palette[1];
+      if (type === 3 && light.fuse) { // fuse: colour by line width, full straw colour = thick, paler = thin
+        const w = (ne - e) * area / (Math.hypot(nx - x, ny - y) * Math.max(0.05, nz - zPrev));
+        const k = Math.min(1, Math.max(0, (w - light.fuse.thin) / ((light.fuse.thick - light.fuse.thin) || 1)));
+        const a = 0.35 + 0.65 * k, bg = palette[6];
+        p = [p[0] * a + bg[0] * (1 - a), p[1] * a + bg[1] * (1 - a), p[2] * a + bg[2] * (1 - a)];
+      }
       // shade by which way the toolpath faces (fake light from front-left), so round walls read as round
       const mx = (x + nx) / 2 - light.cx, my = (y + ny) / 2 - light.cy, r = Math.hypot(mx, my) || 1;
       const lit = Math.max(0, (mx * light.dx + my * light.dy) / r);
@@ -193,7 +169,7 @@ function readG(text, palette, light) {
 self.onmessage = function (ev) {
   const o = ev.data, t0 = Date.now();
   const w = writeG(o);
-  const r = readG(w.text, o.palette, { cx: o.cx, cy: o.cy, dx: -0.6, dy: 0.8 });
+  const r = readG(w.text, o.palette, { cx: o.cx, cy: o.cy, dx: -0.6, dy: 0.8, fuse: o.fuse });
   self.postMessage({ id: o.id, pos: r.pos, col: r.col, layerStart: r.layerStart, layerZ: r.layerZ, layerZone: r.layerZone,
     filament: r.filament, time: r.time, bytes: w.text.length, parts: w.parts, ms: Date.now() - t0 }, [r.pos.buffer, r.col.buffer]);
 };

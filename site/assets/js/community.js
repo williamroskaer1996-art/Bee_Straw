@@ -36,7 +36,7 @@
       entries: [
         { stage: 1, when: "15 Mar", text: "Installed in the school garden with my class." },
         { stage: 3, when: "1 Jun", text: "Sealed. The kids are counting the days." },
-        { stage: 5, when: "10 Sep", text: "Gave it a gentle nudge: still firm. The bulb looks rougher." }
+        { stage: 5, when: "10 Sep", text: "Gave it a gentle nudge: still firm. The fuse looks rougher." }
       ],
       comments: [{ who: "Luca", text: "Love that a class is following it." }] },
     { id: "luca", who: "Luca", place: "Bologna, IT", lat: 44.49, lon: 11.34, printer: "Prusa Core One", stage: 9, predicted: 13.0, actual: 10.0,

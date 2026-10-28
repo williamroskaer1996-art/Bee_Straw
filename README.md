@@ -1,7 +1,7 @@
 # Bee_Straw
 Open-source parametric bee habitats, locally adapted with environmental data and FDM-printed in biodegradable PHA
 
-A Bee Straw is a single 3D-printed nest tube for the red mason bee (*Osmia bicornis*), made of 100 % PHA. It is pushed into the soil and lasts one nesting cycle: a thin lattice "fuse" just under the soil line slowly breaks down, and after about 13 months the nest lets go and returns to the ground. A fresh nest every season avoids the mites and mould that build up in permanent bee hotels.
+A Bee Straw is a single 3D-printed straw for the red mason bee (*Osmia bicornis*), made of 100 % PHA: one Ø20 mm tube with a Ø8 mm bore, pushed 10 cm into the soil and standing 50 cm above it. Just under the soil line, a 15 mm section of the straw is a graded gyroid "fuse": its sheets are thick on one side and thin on the other. The sheet thickness is set from the weather at your pin and published PHA decay rates, so the fuse wears through after about 12 months. The thin side goes first, so the straw tips the way you turned it, then returns to the ground. A fresh nest every season avoids the mites and mould that build up in permanent bee hotels. All timings are model output, uncalibrated; no study has tested PHA nests with bees yet.
 
 The project started in the TU Delft course Computational Fabrication & MetaMaterials (autumn 2026) by William Bo Roskær and Mateo Kaiser.
 

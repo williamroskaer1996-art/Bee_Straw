@@ -1,6 +1,6 @@
 // Print preview: the straw's toolpaths on your printer's build plate, like a slicer preview.
 // The worker (slicer-worker.js) writes stand-in G-code and reads it back; this file draws it with three.js.
-// API: window.BeeSlicer.update({ printer, fuseLine }) — build.js calls it when the printer or the tuning changes.
+// API: window.BeeSlicer.update({ printer, fuse: { thick, thin } }) — build.js calls it when the printer or the tuning changes.
 (function () {
   "use strict";
   const root = document.getElementById("slicer");
@@ -13,7 +13,7 @@
   const wrap = $("slicer-view"), canvas = $("slicer-canvas"), slider = $("slicer-layer"), status = $("slicer-status");
   const reduce = matchMedia("(prefers-reduced-motion: reduce)");
 
-  const opts = { printer: DEFAULT, fuseLine: 0.25 };
+  const opts = { printer: DEFAULT, fuse: { thick: 0.2, thin: 0.133 } };
   let started = false, libs = null, worker = null, jobId = 0, data = null;
   let three = null; // { renderer, scene, camera, controls, plateGroup, paths, top }
 
@@ -34,9 +34,9 @@
     return token("", fallback);
   }
   function palette() {
-    // order = TYPES in the worker: outer wall, inner walls, joint, fuse, skin, brim
+    // order = TYPES in the worker: outer wall, inner walls, joint, fuse, skin, brim; then the background (fuse shading)
     const ink = token("--ink", "#101218"), bg = token("--bg", "#ffffff"), outer = ink.map((c, i) => c * 0.7 + bg[i] * 0.3); // a little lighter, so the shading reads
-    return [outer, token("--muted", "#5d6170"), token("--focus", "#2f6fed"), token("--straw", "#c98a00"), token("--muted", "#5d6170"), token("--line-strong", "#c9ccd4")];
+    return [outer, token("--muted", "#5d6170"), token("--focus", "#2f6fed"), token("--straw", "#c98a00"), token("--muted", "#5d6170"), token("--line-strong", "#c9ccd4"), bg];
   }
 
   // ---------- Scene
@@ -83,7 +83,7 @@
   }
   // Frame the part(s) so the full height is in view, with some of the plate around them.
   function frame(p, partH) {
-    const d = Math.max(partH * 2.6, Math.hypot(p.bed[0], p.bed[1]) * 1.15);
+    const d = Math.max(partH * 3.4, 170); // close on the part; the plate fills the background
     const v = new three.T.Vector3(-0.5, 0.42, 0.76).normalize().multiplyScalar(d);
     three.controls.target.set(0, partH * 0.45, 0);
     three.camera.position.set(v.x, v.y + partH * 0.45, v.z);
@@ -133,17 +133,15 @@
 
   function fmtTime(s) { const h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60); return (h ? h + " h " : "") + m + " min"; }
   function stats(d) {
-    const p = opts.printer, split = d.parts.length > 1;
+    const p = opts.printer, f = opts.fuse;
     const grams = d.filament * Math.PI * p.fil * p.fil / 4 / 1000 * DENSITY;
     $("slicer-kv").innerHTML =
       "<dt>Printer</dt><dd>" + p.name + " · " + p.bed[0] + " × " + p.bed[1] + " × " + p.height + " mm</dd>" +
-      "<dt>Parts</dt><dd>" + (split ? "2 · " + Math.round(d.parts[0].h) + " + " + Math.round(d.parts[1].h) + " mm" : "1 · " + Math.round(d.parts[0].h) + " mm tall") + "</dd>" +
-      "<dt>Fits</dt><dd>" + (split ? "Split: the straw is 281 mm, the printer " + p.height + " mm" : "Yes, " + 281 + " of " + p.height + " mm") + "</dd>" +
-      "<dt>Layers</dt><dd>" + d.layerZ.length.toLocaleString("en-GB") + " · 0.1 mm in joint and fuse, 0.2 mm elsewhere</dd>" +
-      "<dt>Fuse lines</dt><dd>" + opts.fuseLine.toFixed(2) + " mm (tuned for your site)</dd>" +
+      "<dt>Part</dt><dd>Fuse section of the Ø20 straw · " + Math.round(d.parts[0].h) + " mm tall</dd>" +
+      "<dt>Layers</dt><dd>" + d.layerZ.length.toLocaleString("en-GB") + " · 0.1 mm in the fuse, 0.2 mm in the straw</dd>" +
+      "<dt>Fuse sheets</dt><dd>" + f.thick.toFixed(2) + " mm thick side → " + f.thin.toFixed(2) + " mm thin side (tuned for your site)</dd>" +
       "<dt>Filament</dt><dd>" + (d.filament / 1000).toFixed(2) + " m · ≈ " + Math.round(grams) + " g of " + p.fil + " mm allPHA</dd>" +
       "<dt>Print time</dt><dd>≈ " + fmtTime(d.time) + " + heating</dd>";
-    $("slicer-split").hidden = !split;
   }
 
   // ---------- Jobs
@@ -158,15 +156,15 @@
         worker.onmessage = function (ev) { if (ev.data.id !== jobId) return; status.hidden = true; showData(ev.data); };
         worker.onerror = function () { status.textContent = "The preview couldn't be made in this browser."; };
       }
-      worker.postMessage({ id: id, printer: { name: p.name, fil: p.fil }, split: p.height < 285, cx: p.bed[0] / 2, cy: p.bed[1] / 2,
-        fuseLine: opts.fuseLine, palette: palette() });
+      worker.postMessage({ id: id, printer: { name: p.name, fil: p.fil }, cx: p.bed[0] / 2, cy: p.bed[1] / 2,
+        fuse: opts.fuse, palette: palette() });
     }).catch(function () { status.textContent = "The 3D preview needs a connection to load. Try again later."; });
   }
   let timer = 0;
   function update(o) {
     let changed = false;
     if (o.printer && o.printer.id !== opts.printer.id) { opts.printer = o.printer; changed = true; }
-    if (o.fuseLine && Math.abs(o.fuseLine - opts.fuseLine) > 0.004) { opts.fuseLine = o.fuseLine; changed = true; }
+    if (o.fuse && Math.abs(o.fuse.thick - opts.fuse.thick) > 0.004) { opts.fuse = o.fuse; changed = true; }
     if (changed && started) { clearTimeout(timer); timer = setTimeout(run, 350); }
   }
   // Start when the preview comes near the screen (three.js is ~600 kB, so not on page load).
