@@ -56,22 +56,26 @@
       const p = pt(m[0]);
       g += '<g class="gw-mark"><circle cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" r="11"/><text x="' + p[0].toFixed(1) + '" y="' + (p[1] + 4).toFixed(1) + '" text-anchor="middle">' + m[1] + "</text></g>";
     });
-    g += '<text class="gw-centre" x="' + C + '" y="' + (C - 6) + '" text-anchor="middle">one year</text><text class="gw-centre small" x="' + C + '" y="' + (C + 12) + '" text-anchor="middle">+ one month</text>';
+    g += '<text class="gw-centre" x="' + C + '" y="' + (C - 6) + '" text-anchor="middle">one year</text>';
     return '<svg class="gw-svg" viewBox="0 0 ' + W + " " + W + '" role="img" aria-label="Year spiral from installing to the nest letting go">' + g + "</svg>";
   }
 
   // ---------- Line illustrations (ink lines, the straw in the accent colour)
   const SOIL = '<path class="il-soil" d="M0 150 H240"/><path class="il-hatch" d="M14 160 l10 -8 M54 162 l10 -8 M94 160 l10 -8 M134 162 l10 -8 M174 160 l10 -8 M214 162 l10 -8"/>';
-  function straw(x, y, opts) { // (x, y) = soil line at the stake; tube to the right
+  // The straw: one Ø20 tube, 10 cm in the soil with the graded fuse just under the soil line, 50 cm above
+  // (drawn shorter, with a break). The nest is the bore, entrance at the top. The arrow marks the thin side.
+  function straw(x, y, opts) { // (x, y) = where the straw meets the soil line
     opts = opts || {};
-    const tilt = opts.tilt || 0, fuse = opts.fuse == null ? 1 : opts.fuse;
+    const tilt = opts.tilt || 0, fuse = opts.fuse == null ? 1 : opts.fuse, w = 5, top = y - 112;
     let s = '<g class="il-straw">';
-    s += '<path d="M' + (x - 4) + " " + (y + 6) + " V" + (y + 44) + " L" + x + " " + (y + 52) + " L" + (x + 4) + " " + (y + 44) + " V" + (y + 6) + '"/>';
-    s += '<circle class="il-fuse" cx="' + x + '" cy="' + (y + 2) + '" r="7" style="opacity:' + (0.25 + 0.75 * fuse) + '"' + (fuse < 1 ? ' stroke-dasharray="3 2"' : "") + "/>";
-    s += '<g transform="rotate(' + -tilt + " " + x + " " + (y - 6) + ')"><path d="M' + (x - 4) + " " + (y - 5) + " V" + (y - 22) + " Q" + (x - 4) + " " + (y - 30) + " " + (x + 4) + " " + (y - 30) + " H" + (x + 92) + " V" + (y - 21) + " H" + (x + 6) + " Q" + (x + 4) + " " + (y - 21) + " " + (x + 4) + " " + (y - 18) + " V" + (y - 5) + '"/>';
-    if (opts.cap) s += '<circle class="il-cap" cx="' + (x + 92) + '" cy="' + (y - 25.5) + '" r="4.5"/>';
-    if (opts.holes) s += '<circle class="il-hole" cx="' + (x + 92) + '" cy="' + (y - 25.5) + '" r="2"/>';
-    if (opts.cocoons) for (let k = 0; k < 4; k++) s += '<ellipse class="il-cocoon" cx="' + (x + 26 + k * 17) + '" cy="' + (y - 25.5) + '" rx="6" ry="3"/>';
+    s += '<path d="M' + (x - w) + " " + (y + 12) + " V" + (y + 30) + " L" + x + " " + (y + 38) + " L" + (x + w) + " " + (y + 30) + " V" + (y + 12) + '"/>';
+    s += '<rect class="il-fuse" x="' + (x - w) + '" y="' + (y + 1) + '" width="' + 2 * w + '" height="11" style="opacity:' + (0.25 + 0.75 * fuse) + '"' + (fuse < 1 ? ' stroke-dasharray="3 2"' : "") + "/>";
+    s += '<g transform="rotate(' + tilt + " " + (x + w) + " " + (y + 1) + ')"><path d="M' + (x - w) + " " + (y + 1) + " V" + (y - 52) + " M" + (x + w) + " " + (y + 1) + " V" + (y - 52) +
+      " M" + (x - w) + " " + (y - 60) + " V" + top + " M" + (x + w) + " " + (y - 60) + " V" + top + '"/><path class="il-break" d="M' + (x - 9) + " " + (y - 50) + " l18 -5 M" + (x - 9) + " " + (y - 57) + " l18 -5" + '"/>' +
+      '<path class="il-arrow" d="M' + (x + w + 3) + " " + (y - 12) + " h8 m-3 -3 l3 3 l-3 3" + '"/>';
+    if (opts.cap) s += '<ellipse class="il-cap" cx="' + x + '" cy="' + top + '" rx="6.5" ry="3"/>';
+    if (opts.holes) s += '<circle class="il-hole" cx="' + (x - 2) + '" cy="' + top + '" r="1.6"/><circle class="il-hole" cx="' + (x + 2.5) + '" cy="' + top + '" r="1.4"/>';
+    if (opts.cocoons) for (let k = 0; k < 3; k++) s += '<ellipse class="il-cocoon" cx="' + x + '" cy="' + (top + 10 + k * 13) + '" rx="2.6" ry="5.5"/>';
     s += "</g></g>";
     return s;
   }
@@ -85,18 +89,17 @@
   const snow = (x, y) => '<g class="il-snow"><path d="M' + x + " " + (y - 9) + " V" + (y + 9) + " M" + (x - 8) + " " + (y - 4.5) + " L" + (x + 8) + " " + (y + 4.5) + " M" + (x - 8) + " " + (y + 4.5) + " L" + (x + 8) + " " + (y - 4.5) + '"/></g>';
   const ART = {
     print: '<g class="il-ink"><rect x="58" y="22" width="124" height="122" rx="6"/><path d="M58 52 H182 M84 52 V40 H156 V52"/><rect x="108" y="52" width="24" height="12" rx="2"/><path d="M120 64 V70"/><rect x="72" y="128" width="96" height="6" rx="2"/></g>' +
-      '<g class="il-straw"><path d="M120 128 V84 Q120 78 126 78"/><path d="M114 128 V82"/></g>',
+      '<g class="il-straw"><rect x="113" y="92" width="14" height="36"/><rect class="il-fuse" x="113" y="106" width="14" height="8"/></g>',
     spot: SOIL + sun(196, 34) + '<g class="il-ink"><path d="M170 60 L132 98"/><path d="M132 98 l3 -11 m-3 11 l11 -3"/><text class="il-label" x="150" y="96">SE</text></g>' + flower(28, 150, 34) + flower(48, 150, 46) + flower(66, 150, 30) +
       '<g class="il-ink"><path class="il-mud" d="M150 150 q12 -10 26 -2 q10 -8 22 2"/><text class="il-label" x="150" y="138">mud</text></g>',
-    install: SOIL + straw(90, 150) + '<g class="il-ink"><path d="M90 70 V110"/><path d="M82 100 l8 10 l8 -10"/><text class="il-label" x="100" y="80">push in</text>' +
-      '<path d="M150 98 a26 26 0 0 1 24 24" stroke-dasharray="3 3"/><path d="M168 118 l6 4 l1 -7"/><text class="il-label" x="178" y="104">90°</text>' +
-      '<path d="M40 162 H74" stroke-dasharray="2 3"/><text class="il-label" x="6" y="168">fuse under the soil</text></g>',
-    nest: SOIL + straw(70, 150) + flower(200, 150, 38) + flower(222, 150, 28) + bee(176, 92, -10) + '<g class="il-ink"><path d="M164 98 q-10 6 -2 14" stroke-dasharray="2 3"/></g>',
-    sealed: SOIL + straw(70, 150, { cap: true }) + '<g class="il-ink"><path d="M180 124 a14 14 0 1 0 0.1 0" stroke-dasharray="3 3"/><text class="il-label" x="178" y="100">mud cap</text></g>',
-    winter: SOIL + straw(70, 150, { cap: true, cocoons: true }) + snow(60, 46) + snow(110, 30) + snow(190, 52) + '<g class="il-ink"><text class="il-label" x="96" y="98">cocoons</text></g>',
-    out: SOIL + straw(70, 150, { cap: true, holes: true }) + bee(190, 96, -20) + '<g class="il-ink"><path d="M166 118 q8 -6 14 -14" stroke-dasharray="2 3"/></g>' + flower(220, 150, 30),
-    letgo: SOIL + '<g class="il-straw"><path d="M86 156 V194 L90 202 L94 194 V156" opacity=".35"/><circle class="il-fuse" cx="90" cy="152" r="7" style="opacity:.25" stroke-dasharray="3 2"/>' +
-      '<path d="M96 146 H192 V137 H100 Q96 137 96 141 Z"/></g><g class="il-ink"><path d="M60 120 q12 -16 26 -10" stroke-dasharray="3 3"/><path d="M130 118 l6 -6 m0 0 l6 6 m-6 -6 v14"/></g>'
+    install: SOIL + straw(90, 150) + '<g class="il-ink"><path d="M60 22 V50"/><path d="M53 42 l7 9 l7 -9"/><text class="il-label" x="20" y="16">push in</text>' +
+      '<path d="M110 132 a18 18 0 0 1 22 -6" stroke-dasharray="3 3"/><text class="il-label" x="136" y="122">arrow = thin side</text>' +
+      '<path d="M120 157 H160" stroke-dasharray="2 3"/><text class="il-label" x="164" y="160">fuse</text></g>',
+    nest: SOIL + straw(70, 150) + flower(200, 150, 38) + flower(222, 150, 28) + bee(108, 26, 160) + '<g class="il-ink"><path d="M96 30 q-14 -8 -22 4" stroke-dasharray="2 3"/></g>',
+    sealed: SOIL + straw(70, 150, { cap: true }) + '<g class="il-ink"><path d="M84 38 a14 14 0 1 0 0.1 0" stroke-dasharray="3 3"/><text class="il-label" x="102" y="34">mud cap</text></g>',
+    winter: SOIL + straw(70, 150, { cap: true, cocoons: true }) + snow(130, 46) + snow(176, 26) + snow(206, 70) + '<g class="il-ink"><path d="M78 62 H96" stroke-dasharray="2 3"/><text class="il-label" x="100" y="66">cocoons</text></g>',
+    out: SOIL + straw(70, 150, { cap: true, holes: true }) + bee(130, 30, -20) + '<g class="il-ink"><path d="M78 34 q16 -10 38 -4" stroke-dasharray="2 3"/></g>' + flower(220, 150, 30),
+    letgo: SOIL + straw(90, 150, { tilt: 84, fuse: 0, cap: true, holes: true }) + '<g class="il-ink"><path d="M96 70 a60 60 0 0 1 66 30" stroke-dasharray="3 3"/><text class="il-label" x="122" y="66">tips to the arrow</text></g>'
   };
 
   const CAMERA = '<svg class="cam" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 5h3l1.4-2h3.2L11 5h3v8H2z"/><circle cx="8" cy="9" r="2.6"/></svg>';
@@ -106,18 +109,18 @@
       "<p>" + esc(line) + '</p><div class="gs-meta"><span class="gs-tag gs-' + tag.toLowerCase() + '">' + tag + '</span><span class="gs-when">' + esc(chip) + "</span>" + (photo ? '<span class="gs-photo" title="Check-in: take a photo">' + CAMERA + "photo</span>" : "") + "</div></div></article>";
   }
 
-  // d: { place, coord, species, install, emerge, nestEnd, next, relDay, releaseMonths, early, example }
+  // d: { place, coord, species, install, emerge, nestEnd, next, relDay, releaseMonths, early, example, dir }
   function render(el, d) {
     const relText = isFinite(d.relDay) ? when(d.relDay) : "after two years";
     const stories = [
-      panel(1, ART.print, "Print your straw", "One file for your printer, every setting done.", "Before " + when(d.install), "Make", true),
+      panel(1, ART.print, "Print your straw", "One file for your printer, with the fuse tuned for your weather.", "Before " + when(d.install), "Make", true),
       panel(2, ART.spot, "Pick the spot", "Morning sun, facing south-east. Flowers and damp mud nearby.", "Before " + when(d.install), "Make", false),
-      panel(3, ART.install, "Push in, bend once", "Fuse just under the soil. Bend the joint to 90°.", season(d.install) + " · " + when(d.install), "Install", true),
+      panel(3, ART.install, "Push in, turn the arrow", "Push it in 10 cm, so the fuse sits just under the soil. Turn the arrow towards " + (d.dir ? "the " + d.dir : "where it may fall") + ".", season(d.install) + " · " + when(d.install), "Install", true),
       panel(4, ART.nest, "Bees move in", "Look for pollen and bees at the entrance.", season(d.emerge) + " · " + when(d.emerge) + " → " + when(d.nestEnd), "Watch", false),
       panel(5, ART.sealed, "Sealed with mud", "A mud cap means the nest is full.", season(d.nestEnd) + " · " + when(d.nestEnd), "Watch", true),
       panel(6, ART.winter, "Leave it alone", "Young bees sleep in cocoons through winter.", "Summer → Winter", "Wait", false),
       panel(7, ART.out, "New bees out", "Holes in the cap: they made it.", season(d.next) + " · " + when(d.next), "Watch", true),
-      panel(8, ART.letgo, "Back to the soil", "Leave it where it falls. Print a new one, a few metres away.", season(d.relDay) + " · " + relText, "Let go", true)
+      panel(8, ART.letgo, "Back to the soil", "The thin side goes first, so it tips the way of the arrow. Leave it where it falls; print a new one a few metres away.", season(d.relDay) + " · " + relText, "Let go", true)
     ].join("");
     el.innerHTML =
       '<section class="gw" aria-label="Your year">' +
@@ -133,7 +136,7 @@
             '<li><span class="gw-k">5</span><b>Lets go</b><span>' + relText + (isFinite(d.releaseMonths) ? ", ~" + Math.round(d.releaseMonths) + " months" : "") + "</span></li>" +
           "</ol>" +
           '<div class="gw-legend"><span><i class="lg-wait"></i>waiting</span><span><i class="lg-nest"></i>bees nesting</span><span><i class="lg-inside"></i>young inside</span><span><i class="lg-out"></i>new bees out</span></div>' +
-          (d.early ? '<p class="gw-note"><b>Heads-up:</b> here the nest may let go before the new bees are out. If it falls early, leave it lying with the entrance free.</p>' : "") +
+          (d.early ? '<p class="gw-note"><b>Heads-up:</b> here the straw may let go before the new bees are out. If it falls, leave it lying with the entrance free.</p>' : "") +
         "</div>" +
       "</section>" +
       '<section class="gs" aria-label="Step by step">' + stories + "</section>" +

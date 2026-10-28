@@ -1,9 +1,11 @@
 // Build your straw: place → site → decay preview → printer → download.
-// The decay preview is a simplified, literature-based estimate, not Mateo's full engine:
+// The decay estimate uses published PHA decay rates and the pin's own weather, not Mateo's full engine:
 //   wear per day = 0.6 µm/day/face at 25 °C (range 0.3–1.4), halved per 10 °C colder (Q10 = 2, assumed),
-//   counted only on days the soil is wet. Calibrated so the standard fuse at De Bilt releases at 13.0 months
-//   (the straw fuse study), using De Bilt weather from the same source as the pin, so places are compared
-//   like with like. Every number it shows is model output, uncalibrated.
+//   ×1.5 because every fuse line is quenched [assumed from literature], counted only on days the soil is wet.
+// The fuse is a graded gyroid: sheets thick on one side, thin on the other (thin = 0.67 × thick, as in the
+// course fuse, 0.20 → 0.133 mm). The thick sheets are sized to be worn through from both faces 12 months
+// after installing, so the straw lets go then; the thin side goes first, so it tips that way.
+// Every number it shows is model output, uncalibrated.
 (function () {
   "use strict";
   const CFG = window.BEESTRAW_CONFIG || {};
@@ -26,12 +28,13 @@
   // ---------- Decay model
   const R25 = 0.6;          // µm/day/face at 25 °C, wet soil [literature, engine default]
   const Q10 = 2;            // [assumed]
-  const T0 = 0.25;          // standard fuse line, mm
-  const TARGET = 13;        // months
-  const MIN_LINE = 0.15, MAX_LINE = 0.40; // printable fuse lines, mm [assumed from Plate 4 range]
+  const QUENCH = 1.5;       // quenched fuse lines wear faster [assumed from literature]
+  const TARGET = 12;        // months from installing until the straw lets go (William, 28 Oct 2026)
+  const RATIO = 0.133 / 0.2; // thin side / thick side sheet thickness, as in the course fuse
+  const THINNEST_PRINTED = 0.10; // mm: thinner than any single line we have printed (Plate 4) [measured]
   const DAYS_PER_MONTH = 30.44;
 
-  function rate(tSoil) { return tSoil <= 4 ? 0 : R25 * Math.pow(Q10, (tSoil - 25) / 10); }
+  function rate(tSoil) { return tSoil <= 4 ? 0 : QUENCH * R25 * Math.pow(Q10, (tSoil - 25) / 10); }
 
   // Monthly climate (12 × {t, wet}) from an example's parameters.
   function exampleMonths(e) {
@@ -60,19 +63,11 @@
     for (let i = 0; i < cum.length; i++) if (cum[i] >= threshold) return i / DAYS_PER_MONTH;
     return Infinity;
   }
-  // Calibration: threshold for the standard fuse = De Bilt dose at 13.0 months from the same install month.
-  // Live pins are compared with live De Bilt weather (same source, same years, same wet rule);
-  // example climates with the example De Bilt climate.
   const DE_BILT = { lat: 52.10, lon: 5.18 };
   const PIN_KEY = "beestraw-pin"; // last pin, remembered in this browser
-  let reference = null; // live De Bilt climate, once loaded
-  function calibration(startMonth, source) {
-    const months = source === "live" && reference ? reference.months : exampleMonths(EXAMPLES[0]);
-    return doseAt(cumulative(months, startMonth, 14), TARGET);
-  }
 
   // ---------- State
-  const state = { site: null, climate: null, source: "example", install: 2, month: 0, result: null };
+  const state = { site: null, climate: null, source: "example", install: 2, month: 0, result: null, dir: "" };
 
   // ---------- Map: Google Maps when a key is set, otherwise a satellite map (Leaflet), otherwise a preview map
   const mapEl = $("build-map");
@@ -347,17 +342,6 @@
     return { t: acc.t / ws, a: acc.a / ws, w: acc.w / ws, wa: acc.wa / ws, rain: acc.rain / ws, soil: near.soil, near: near, exact: nd < 0.1 };
   }
   function climateWindowEnd() { const end = new Date(); end.setUTCDate(end.getUTCDate() - 7); return end; }
-  // Live De Bilt reference, cached in the browser for a month (per data window).
-  function loadReference() {
-    if (reference) return Promise.resolve(reference);
-    const key = "beestraw-ref-v2-" + climateWindowEnd().toISOString().slice(0, 7);
-    try { const c = JSON.parse(localStorage.getItem(key) || "null"); if (c && c.months) { reference = c; return Promise.resolve(c); } } catch (e) { /* storage blocked */ }
-    return fetchClimate(DE_BILT.lat, DE_BILT.lon).then(function (c) {
-      reference = { months: c.months, soilData: c.soilData };
-      try { localStorage.setItem(key, JSON.stringify(reference)); } catch (e) { /* storage blocked */ }
-      return reference;
-    });
-  }
   function fetchClimate(lat, lon) {
     const end = climateWindowEnd();
     const start = new Date(end); start.setUTCFullYear(end.getUTCFullYear() - (CFG.weatherYears || 5));
@@ -418,15 +402,9 @@
     state.soil = null;
     fetchClimate(lat, lon).then(function (c) {
       if (token !== placeToken) return;
-      // A pin at De Bilt is its own reference.
-      if (!reference && Math.abs(lat - DE_BILT.lat) < 0.01 && Math.abs(lon - DE_BILT.lon) < 0.01) reference = { months: c.months, soilData: c.soilData };
-      // Wait for the De Bilt reference, but never let it block the result.
-      return loadReference().catch(function () { return null; }).then(function () {
-        if (token !== placeToken) return;
-        state.climate = c; state.source = "live";
-        c.soil = soilText(lat, lon);
-        render();
-      });
+      state.climate = c; state.source = "live";
+      c.soil = soilText(lat, lon);
+      render();
     }).catch(function () {
       if (token !== placeToken) return;
       const b = blendExample(lat, lon);
@@ -619,44 +597,46 @@
       $("install-month").value = String(state.install);
     }
     $("install-hint").textContent = "Suggested for your climate: install by " + when(phenology(c).install) + ".";
-    const H = calibration(state.install, state.source);
-    $("tune-cal").textContent = state.source === "live"
-      ? (reference ? "Compared with De Bilt weather from the same source, where the standard straw lets go at 13 months." : "Compared with an example De Bilt climate: live De Bilt weather couldn't be loaded.")
-      : "Compared with an example De Bilt climate.";
+    $("tune-cal").textContent = "Wear rates: published PHA decay in wet soil (0.6 µm a day per face at 25 °C, halved per 10 °C colder), ×1.5 for quenched lines, on the days your soil is wet" +
+      (state.source === "live" ? "." : " (example climate here).");
     const cum = cumulative(c.months, state.install, 24);
-    const std = releaseMonth(cum, H);
-    // Aim just past the dose at 13 months: in cold climates decay pauses over winter, so the fuse
-    // reaching that dose early (in autumn) would mean an early release.
-    let line = T0 * (doseAt(cum, TARGET) + 0.01) / H;
-    const clamped = line < MIN_LINE ? "min" : line > MAX_LINE ? "max" : "";
-    line = Math.min(MAX_LINE, Math.max(MIN_LINE, line));
-    const threshold = H * (line / T0);
-    const rel = releaseMonth(cum, threshold);
-    state.result = { cum: cum, threshold: threshold, release: rel, line: line, std: std, clamped: clamped };
+    // µm per face at 12 months, aimed just past it: where winter soil is ≤ 4 °C wear stops, and a fuse sized
+    // exactly to this dose would already be worn through when wear stops in autumn.
+    const dose = doseAt(cum, TARGET) + 0.01;
+    const thick = Math.max(0.01, 2 * dose / 1000), thin = RATIO * thick; // mm: worn through from both faces
+    const goneAt = (t) => releaseMonth(cum, t * 1000 / 2);
+    const rel = goneAt(thick), thinGone = goneAt(thin);
+    state.result = { cum: cum, thick: thick, thin: thin, release: rel, thinGone: thinGone };
 
     // Your dates, in the same words as the install guide
     const ph = phenology(c), installDay = Math.max(ph.install, state.install * DAYS_PER_MONTH), relDay = installDay + rel * DAYS_PER_MONTH;
+    state.newOut = (ph.next - installDay) / DAYS_PER_MONTH;
     $("date-install").textContent = when(installDay);
     $("date-nest").textContent = when(ph.emerge) + " → " + when(ph.nestEnd);
     $("date-out").textContent = when(ph.next) + ", next year";
     $("date-release").textContent = isFinite(rel) ? when(relDay) + (relDay >= 365 ? ", next year" : "") + " · about " + Math.round(rel) + " months" : "may stand longer than 2 years";
-    $("tune-line").textContent = line.toFixed(2) + " mm";
+    $("tune-thick").textContent = thick.toFixed(2) + " mm";
+    $("tune-thin").textContent = thin.toFixed(2) + " mm";
+    $("tune-thin-gone").textContent = isFinite(thinGone) ? "~" + thinGone.toFixed(1) + " months" : "over 24 months";
     $("tune-release").textContent = isFinite(rel) ? "~" + rel.toFixed(1) + " months" : "over 24 months";
-    $("tune-std").textContent = isFinite(std) ? std.toFixed(1) + " months" : "over 24 months";
-    $("tune-note").textContent = clamped === "min"
-      ? "Decay here is fast. Even the thinnest printable fuse may let go early, so check it in spring."
-      : clamped === "max"
-      ? "Decay here is slow. Even the thickest fuse line may outlast one season."
-      : "The fuse lines are set so the nest lets go about 13 months after you install it.";
+    $("tune-note").textContent = "The fuse sheets are sized to your weather so the straw lets go about 12 months after you install it. The thin side goes first, so it tips that way." +
+      (thin < THINNEST_PRINTED ? " Here the sheets come out thinner than any line we've printed; printing them at real size is still being tested." : "");
     drawChart();
     $("decay-month").max = 18;
     setMonth(+$("decay-month").value);
     renderGuide();
-    if (window.BeeSlicer && isFinite(state.result.line)) window.BeeSlicer.update({ fuseLine: state.result.line });
+    if (window.BeeSlicer) window.BeeSlicer.update({ fuse: { thick: thick, thin: thin } });
   }
 
   // Chart: fuse left (%) over 18 months
-  function remaining(m) { const r = state.result; return Math.max(0, 1 - doseAt(r.cum, m) / r.threshold); }
+  // Share of fuse material left: sheets graded linearly from thick (one side) to thin (the other),
+  // each worn from both faces by the same depth.
+  function remaining(m) {
+    const r = state.result, d2 = 2 * doseAt(r.cum, m) / 1000;
+    let left = 0, all = 0;
+    for (let k = 0; k <= 40; k++) { const t = r.thick + (r.thin - r.thick) * k / 40; left += Math.max(0, t - d2); all += t; }
+    return left / all;
+  }
   function drawChart() {
     const W = 420, Hh = 150, L = 34, B = 24, T = 10, Rr = 10;
     const x = (m) => L + (m / 18) * (W - L - Rr), y = (f) => T + (1 - f) * (Hh - T - B);
@@ -666,41 +646,113 @@
     let grid = "";
     [0, 0.5, 1].forEach((f) => { grid += '<line class="ch-grid" x1="' + L + '" x2="' + (W - Rr) + '" y1="' + y(f) + '" y2="' + y(f) + '"/><text class="ch-lab" x="' + (L - 6) + '" y="' + (y(f) + 4) + '" text-anchor="end">' + f * 100 + "%</text>"; });
     [0, 3, 6, 9, 12, 15, 18].forEach((m) => { grid += '<text class="ch-lab" x="' + x(m) + '" y="' + (Hh - 6) + '" text-anchor="middle">' + m + "</text>"; });
-    const rel = state.result.release;
+    const rel = state.result.release, thinGone = state.result.thinGone, out = state.newOut;
     const relMark = isFinite(rel) && rel <= 18 ? '<line class="ch-rel" x1="' + x(rel) + '" x2="' + x(rel) + '" y1="' + T + '" y2="' + y(0) + '"/><text class="ch-lab strong" x="' + (x(rel) + 4) + '" y="' + (T + 10) + '">lets go</text>' : "";
+    const thinMark = isFinite(thinGone) && thinGone <= 18 ? '<line class="ch-must" x1="' + x(thinGone) + '" x2="' + x(thinGone) + '" y1="' + (T + 16) + '" y2="' + y(0) + '"/><text class="ch-lab" x="' + (x(thinGone) - 4) + '" y="' + (T + 26) + '" text-anchor="end">thin side gone</text>' : "";
+    const outMark = isFinite(out) && out <= 18 ? '<line class="ch-out" x1="' + x(out) + '" x2="' + x(out) + '" y1="' + (T + 32) + '" y2="' + y(0) + '"/><text class="ch-lab" x="' + (x(out) + 4) + '" y="' + (T + 42) + '">new bees out</text>' : "";
     $("decay-chart").innerHTML =
       '<rect class="ch-season" x="' + x(0) + '" y="' + T + '" width="' + (x(4) - x(0)) + '" height="' + (y(0) - T) + '"/><text class="ch-lab" x="' + (x(0) + 4) + '" y="' + (T + 10) + '">nesting</text>' +
-      '<line class="ch-must" x1="' + x(11) + '" x2="' + x(11) + '" y1="' + T + '" y2="' + y(0) + '"/><text class="ch-lab" x="' + (x(11) - 4) + '" y="' + (T + 10) + '" text-anchor="end">must stand</text>' +
-      grid + '<path class="ch-area" d="' + area + '"/><path class="ch-line" d="' + d + '"/>' + relMark +
+      grid + '<path class="ch-area" d="' + area + '"/><path class="ch-line" d="' + d + '"/>' + thinMark + outMark + relMark +
       '<circle id="ch-dot" class="ch-dot" r="4"/>';
     state.chartX = x; state.chartY = y;
   }
 
-  // Decay simulation video (straw_fuse study, engine 0.3.1, De Bilt): 49 frames, months 0–24 in half-month steps,
-  // the fuse lets go at 13.0 months. Mapped onto this site's estimate so both let go at the same month.
-  const SIM = { fps: 8, perMonth: 2, release: 13, last: 24 };
-  const simVideo = $("sim-video");
+  // ---------- Decay figure (illustration from the estimate above, in the site's line style)
+  // Left: the fuse seen from above, cut through the middle: gyroid sheets (cell 6 mm) between the Ø8 bore and the
+  // Ø20 outside, drawn at their thickness (×8), thick on one side and thin on the other, thinning month by month.
+  // Right: the whole straw from the side (10 cm in the soil, fuse just under the soil line, 50 cm above),
+  // tipping towards the thin side when the fuse lets go. Not a structural simulation.
+  const DIRS = { E: 0, SE: 45, S: 90, SW: 135, W: 180, NW: -135, N: -90, NE: -45 };
+  const DIR_NAMES = { N: "north", NE: "north-east", E: "east", SE: "south-east", S: "south", SW: "south-west", W: "west", NW: "north-west" };
+  let gyroidSlice = null;
+  function sliceSegments() { // marching squares on a 0.25 mm grid, local x: thick (−x) → thin (+x)
+    if (gyroidSlice) return gyroidSlice;
+    const k = 2 * Math.PI / 6, h = 0.25, n = 42, Z = 1.0 * k, out = [];
+    const f = (x, y) => Math.sin(x * k) * Math.cos(y * k) + Math.sin(y * k) * Math.cos(Z) + Math.sin(Z) * Math.cos(x * k);
+    for (let j = -n; j < n; j++) for (let i = -n; i < n; i++) {
+      const x0 = i * h, y0 = j * h, v = [f(x0, y0), f(x0 + h, y0), f(x0 + h, y0 + h), f(x0, y0 + h)];
+      const P = [[x0, y0], [x0 + h, y0], [x0 + h, y0 + h], [x0, y0 + h]], cut = [];
+      for (let e = 0; e < 4; e++) { const a = v[e], b = v[(e + 1) % 4]; if ((a > 0) !== (b > 0)) { const t = a / (a - b), p = P[e], q = P[(e + 1) % 4]; cut.push([p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t]); } }
+      for (let c = 0; c + 1 < cut.length; c += 2) {
+        const a = cut[c], b = cut[c + 1], mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, r = Math.hypot(mx, my);
+        if (r > 4.3 && r < 9.7) out.push([a[0], a[1], b[0], b[1], mx]);
+      }
+    }
+    return (gyroidSlice = out);
+  }
+  function drawFuse(m) {
+    const r = state.result; if (!r) return;
+    const d2 = 2 * doseAt(r.cum, m) / 1000, ang = DIRS[state.dir] != null ? DIRS[state.dir] : 0, S = 8, TS = 20, cx = 116, cy = 126; // TS: sheets drawn 20× thicker
+    let ghost = "", live = "";
+    sliceSegments().forEach(function (q) {
+      const t = r.thick + (r.thin - r.thick) * (q[4] + 10) / 20, left = t - d2; // local x −10 (thick) … +10 (thin)
+      const seg = 'x1="' + (q[0] * S).toFixed(1) + '" y1="' + (q[1] * S).toFixed(1) + '" x2="' + (q[2] * S).toFixed(1) + '" y2="' + (q[3] * S).toFixed(1) + '"';
+      ghost += "<line " + seg + ' stroke-width="' + (t * TS).toFixed(2) + '"/>';
+      if (left > 0) live += "<line " + seg + ' stroke-width="' + (left * TS).toFixed(2) + '"/>';
+    });
+    const rad = ang * Math.PI / 180, at = (rr) => [cx + rr * Math.cos(rad), cy + rr * Math.sin(rad)];
+    const thinLab = at(10 * S + 14), thickLab = at(-(10 * S + 14));
+    const gone = isFinite(r.release) && m >= r.release, thinOut = isFinite(r.thinGone) && m >= r.thinGone;
+    let g = '<text class="ff-lab" x="14" y="22">fuse from above</text>' +
+      '<text class="ff-lab strong" x="14" y="38">fuse left ' + Math.round(remaining(m) * 100) + ' %</text>' +
+      '<text class="ff-lab" x="14" y="242">sheets drawn 20× thicker</text>' +
+      '<g class="ff-north"><path d="M190 30 l5 -12 l5 12 z"/><text class="ff-lab" x="195" y="42" text-anchor="middle">N</text></g>' +
+      '<g transform="translate(' + cx + " " + cy + ") rotate(" + ang + ')">' +
+        '<circle class="ff-ring" r="' + 10 * S + '"/><circle class="ff-ring" r="' + 4 * S + '"/>' +
+        '<g class="ff-ghost">' + ghost + '</g><g class="ff-live">' + live + "</g>" +
+      "</g>" +
+      '<text class="ff-lab" x="' + thinLab[0].toFixed(1) + '" y="' + (thinLab[1] + 4).toFixed(1) + '" text-anchor="middle">thin</text>' +
+      '<text class="ff-lab" x="' + thickLab[0].toFixed(1) + '" y="' + (thickLab[1] + 4).toFixed(1) + '" text-anchor="middle">thick</text>';
+    // Side view: soil at y 150; the straw 12 wide (Ø20, not to scale), 50 cm above with a break, 10 cm below.
+    const X = 330, Y = 150, w = 6;
+    const tilt = gone ? Math.min(84, (m - r.release) * 168 + 10) : thinOut ? 3 : 0;
+    const fuseOp = Math.max(0.15, remaining(m)).toFixed(2);
+    g += '<line class="ff-div" x1="226" y1="16" x2="226" y2="224"/>' +
+      '<text class="ff-lab" x="240" y="22">from the side</text>' +
+      '<path class="ff-soil" d="M236 ' + Y + ' H410"/><text class="ff-lab" x="' + (X - 12) + '" y="' + (Y - 6) + '" text-anchor="end">soil line</text>' +
+      '<path class="ff-hatch" d="M246 ' + (Y + 14) + ' l10 -8 M276 ' + (Y + 16) + ' l10 -8 M352 ' + (Y + 14) + ' l10 -8 M382 ' + (Y + 16) + ' l10 -8"/>' +
+      '<path class="ff-straw" d="M' + (X - w) + " " + (Y + 14) + " V" + (Y + 64) + " L" + X + " " + (Y + 74) + " L" + (X + w) + " " + (Y + 64) + " V" + (Y + 14) + '"/>' +
+      '<rect class="ff-fuse" x="' + (X - w) + '" y="' + (Y + 1) + '" width="' + 2 * w + '" height="12" style="opacity:' + fuseOp + '"/>' +
+      '<text class="ff-lab" x="' + (X - 12) + '" y="' + (Y + 11) + '" text-anchor="end">fuse</text>' +
+      '<text class="ff-lab" x="' + (X - 12) + '" y="' + (Y + 52) + '" text-anchor="end">10 cm</text>' +
+      '<g transform="rotate(' + tilt.toFixed(1) + " " + (X + w) + " " + (Y + 1) + ')">' +
+        '<path class="ff-straw" d="M' + (X - w) + " " + (Y + 1) + " V" + (Y - 52) + " M" + (X + w) + " " + (Y + 1) + " V" + (Y - 52) +
+          " M" + (X - w) + " " + (Y - 62) + " V" + (Y - 120) + " H" + (X + w) + " V" + (Y - 62) + " M" + (X - w) + " " + (Y + 1) + " H" + (X + w) + '"/>' +
+        '<path class="ff-break" d="M' + (X - 12) + " " + (Y - 50) + " l24 -6 M" + (X - 12) + " " + (Y - 58) + " l24 -6" + '"/>' +
+        '<path class="ff-mark" d="M' + (X + w + 3) + " " + (Y - 14) + " h9 m-3 -3 l3 3 l-3 3" + '"/>' +
+        (tilt < 20 ? '<text class="ff-lab" x="' + (X + 16) + '" y="' + (Y - 84) + '">50 cm</text>' : "") +
+      "</g>" +
+      '<text class="ff-lab' + (gone ? " strong" : "") + '" x="240" y="242">' + (gone ? "let go: tipped to the thin side" : thinOut ? "thin side gone: starts to lean" : "thin side →") + "</text>" +
+      (state.dir ? '<text class="ff-lab" x="240" y="256">thin side faces ' + DIR_NAMES[state.dir] + "</text>" : "");
+    $("fuse-fig").innerHTML = g;
+  }
   function setMonth(m) {
     state.month = m;
     const r = state.result; if (!r) return;
     const f = remaining(m), gone = m >= r.release;
-    const simM = Math.min(SIM.last, m * SIM.release / (isFinite(r.release) ? r.release : 30));
-    if (simVideo && simVideo.readyState >= 1) simVideo.currentTime = (Math.round(simM * SIM.perMonth) + 0.5) / SIM.fps;
-    $("sim-month").textContent = "month " + m + (gone ? " · let go" : "");
+    drawFuse(m);
     $("decay-label").textContent = m;
-    $("decay-state").textContent = m === 0 ? "Installed" : gone ? "Released: the nest has let go" : m >= 11 ? "Fuse is thin, release is near" : m <= 4 ? "Nesting season" : "Bees develop inside";
+    $("decay-state").textContent = m === 0 ? "Installed" : gone ? "Let go: the straw has tipped over" : m >= r.thinGone ? "Thin side gone: it leans that way" : m <= 4 ? "Nesting season" : "Bees develop inside";
     const dot = $("ch-dot");
     if (dot && state.chartX) { dot.setAttribute("cx", state.chartX(m)); dot.setAttribute("cy", state.chartY(f)); }
   }
   $("decay-month").addEventListener("input", (e) => setMonth(+e.target.value));
-  if (simVideo) simVideo.addEventListener("loadedmetadata", () => setMonth(state.month || 0));
+  // Fall direction (optional): the thin side of the fuse is turned towards it when installing.
+  const compass = $("fall-dir");
+  if (compass) compass.addEventListener("click", function (e) {
+    const b = e.target.closest("button[data-dir]"); if (!b) return;
+    state.dir = b.dataset.dir;
+    compass.querySelectorAll("button[data-dir]").forEach((x) => x.setAttribute("aria-pressed", x === b ? "true" : "false"));
+    $("fall-dir-note").textContent = state.dir ? "Turn the arrow on the straw towards the " + DIR_NAMES[state.dir] + " when you install it." : "Any direction: turn the arrow away from paths and plants.";
+    if (state.result) { setMonth(state.month || 0); renderGuide(); }
+  });
   $("install-month").addEventListener("change", function (e) { state.install = +e.target.value; if (state.climate) render(); });
 
 
   // ---------- Install guide (per location)
   // Phenology is a rough estimate [assumed]: red mason bees emerge when daily mean temperatures reach
   // about 8 °C in the topsoil; install ~3 weeks before; nesting lasts ~8 weeks; the new bees overwinter in the tube
-  // and emerge ~12 months later. That is why the fuse should hold for ~13 months.
+  // and emerge ~12 months later.
   const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const SHORT = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
   const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -737,7 +789,8 @@
         : "For the red mason bee (<i>Osmia bicornis</i>).",
       install: installDay, emerge: ph.emerge, nestEnd: ph.nestEnd, next: ph.next,
       relDay: isFinite(relDay) ? relDay : ph.next + 60, releaseMonths: r.release,
-      early: isFinite(relDay) && relDay < ph.next, example: state.source !== "live"
+      early: isFinite(relDay) && relDay < ph.next, example: state.source !== "live",
+      dir: state.dir ? DIR_NAMES[state.dir] : ""
     });
   }
   $("guide-pdf").addEventListener("click", function () { renderGuide(); window.print(); });
@@ -794,7 +847,7 @@
         lat: Math.round(state.site.lat * 100) / 100, lon: Math.round(state.site.lon * 100) / 100,
         place_name: state.site.name === "Your pin" ? null : state.site.name.slice(0, 80),
         printer: p ? p.name : null, install_month: state.install,
-        fuse_line_mm: Math.round(state.result.line * 100) / 100,
+        fuse_line_mm: Math.round(state.result.thick * 100) / 100, // thick-side sheet
         predicted_release_months: isFinite(state.result.release) ? Math.round(state.result.release * 10) / 10 : null,
         weather_source: state.source
       }).select("id").single().then(function (r) {

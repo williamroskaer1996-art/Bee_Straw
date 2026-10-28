@@ -156,6 +156,8 @@ main { min-height: 60vh; }
 .d-soil-line { stroke: var(--muted); stroke-width: 1; }
 .d-bar { fill: var(--ink); }
 .d-bar.wet { fill: var(--muted); }
+.d-wave { fill: none; stroke: var(--straw); stroke-linecap: round; }
+.d-mark { fill: none; stroke: var(--ink); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 /* How it works · slide 1: satellite map */
 .hiw-map { background: #2b3328; overflow: hidden; }
 .hiw-map .m-img { filter: saturate(0.8) contrast(1.04); }
@@ -333,7 +335,9 @@ input[type=range] { width: 100%; accent-color: var(--ink); }
 .il-soil { stroke: var(--ink); stroke-width: 1.8; }
 .il-hatch { stroke: var(--line-strong); stroke-width: 1.2; }
 .il-straw, .il-straw path { fill: none; stroke: var(--straw); stroke-width: 2.4; stroke-linejoin: round; stroke-linecap: round; }
-.il-fuse { fill: var(--bg); stroke: var(--straw); stroke-width: 2; }
+.il-fuse { fill: color-mix(in srgb, var(--straw) 40%, var(--bg)); stroke: var(--straw); stroke-width: 2; }
+.il-straw .il-break { stroke: var(--muted); stroke-width: 1; }
+.il-straw .il-arrow { stroke: var(--ink); stroke-width: 1.6; }
 .il-cap { fill: #8a6a4a; stroke: var(--ink); stroke-width: 1.2; }
 .il-hole { fill: var(--bg); stroke: none; }
 .il-cocoon { fill: #c8b08a; stroke: var(--ink); stroke-width: 1; }
@@ -441,11 +445,32 @@ dialog.signin::backdrop { background: rgb(16 18 24 / 0.4); }
 .slicer-legend li { display: flex; align-items: center; gap: 6px; }
 .slicer-legend i { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
 
-/* Build · decay simulation video */
-.sim { position: relative; margin: 0; border-radius: 10px; overflow: hidden; background: #0b0d12; }
-.sim video { display: block; width: 100%; height: auto; aspect-ratio: 680 / 590; object-fit: cover; }
-.sim-month { position: absolute; top: 10px; left: 12px; font-size: 0.78rem; color: #fff; background: rgba(13,15,20,0.7); padding: 3px 8px; border-radius: 4px; }
-.sim figcaption { font-size: 0.68rem; color: #a0a5b5; padding: 8px 12px 10px; }
+/* Build · decay figure (fuse from above + straw from the side) */
+.fuse-fig { margin: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); overflow: hidden; }
+.fuse-fig svg { display: block; width: 100%; height: auto; }
+.fuse-fig figcaption { font-size: 0.68rem; color: var(--muted); padding: 0 12px 10px; }
+.ff-lab { fill: var(--muted); font: 9.5px var(--f-mono); }
+.ff-lab.strong { fill: var(--ink); font-weight: 600; }
+.ff-ring { fill: none; stroke: var(--line-strong); stroke-width: 0.8; stroke-dasharray: 3 3; }
+.ff-ghost line { stroke: var(--line); stroke-linecap: round; }
+.ff-live line { stroke: var(--straw); stroke-linecap: round; }
+.ff-north path { fill: var(--ink); }
+.ff-div { stroke: var(--line); stroke-width: 1; }
+.ff-soil { stroke: var(--muted); stroke-width: 1; }
+.ff-hatch { stroke: var(--line-strong); stroke-width: 1; }
+.ff-straw { fill: none; stroke: var(--straw); stroke-width: 1.8; stroke-linejoin: round; }
+.ff-fuse { fill: var(--straw); }
+.ff-break { stroke: var(--muted); stroke-width: 1; }
+.ff-mark { fill: none; stroke: var(--ink); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+.ch-out { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 1 3; }
+/* Build · fall direction compass */
+.compass { border: 0; padding: 0; margin: 4px 0 0; display: grid; gap: 8px; }
+.compass legend { font-size: 0.9rem; padding: 0; margin-bottom: 6px; }
+.compass legend span { font-size: 0.82rem; }
+.compass-grid { display: grid; grid-template-columns: repeat(3, 44px); gap: 4px; }
+.compass-grid button { height: 36px; font: 500 0.75rem var(--f-mono); color: var(--muted); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+.compass-grid button:hover { border-color: var(--ink); color: var(--ink); }
+.compass-grid button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
 
 /* Build · your dates and the download card */
 .kv.dates dd { font-family: var(--f-body); font-size: 0.98rem; font-weight: 500; text-align: right; }

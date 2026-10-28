@@ -1,5 +1,15 @@
 # Roadmap and notes
 
+## The final fuse (28 Oct 2026)
+
+The site now shows the course's final fuse: a 15 mm graded gyroid section (cell 6 mm) of the Ø20 / Ø8 straw, just under the soil, thin side 0.67 × thick side. The bend joint and horizontal nest tube are gone. Per pin, published decay rates (0.6 µm/day/face at 25 °C, Q10 = 2, ×1.5 for quenched lines [assumed]) and the pin's weather size the thick sheets to wear through at 12 months (or when wear resumes after a winter at ≤ 4 °C). At De Bilt this gives about 0.18 / 0.12 mm, close to the simulated course fuse (0.20 / 0.133 mm). Open:
+
+- **Timing vs. bees:** installed about 3 weeks before the bees fly, a 12-month fuse lets go a few weeks before next year's bees come out. The install guide shows a heads-up where this happens. [decide]
+- **Load:** the real nest (~150 g on a 50 cm lever) will tip before the fuse is fully worn; re-run the statics check before trusting the let-go month. [to verify]
+- **Home printing at real size:** 0.1–0.3 mm sheets are below a 0.4 mm nozzle line. [to verify]
+- **The thin-side mark** on the printed straw (arrow or notch above the soil). [to design]
+- A simulator sweep over sheet thicknesses would replace the literature-only estimate.
+
 Things decided or noted for later. Labels: **[assumed]** design choice not yet tested, **[to verify]** needs a source or a test.
 
 ## Later: more design freedom before the G-code is made
