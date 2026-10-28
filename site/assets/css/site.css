@@ -358,7 +358,10 @@ input[type=range] { width: 100%; accent-color: var(--ink); }
   .site-header, .site-footer, body::before, dialog, .view > :not(.guide), .guide-head { display: none !important; }
   main.wrap, .view { display: block; padding: 0; max-width: none; }
   .gw { break-after: page; border: 0; }
-  .gs { grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .gs { grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .gs-panel { break-inside: avoid; }
+  .gs-text p { font-size: 9pt; line-height: 1.35; }
+  .g-foot { margin-top: 4px; font-size: 8pt; }
   .gw, .gs, .gs-art, .gs-tag { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 

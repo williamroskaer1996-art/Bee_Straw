@@ -132,15 +132,8 @@
       }, { rootMargin: "300px 0px", threshold: [0, 0.6] }).observe(map);
     } else { drawMap(); map.classList.add("in"); }
 
-    // Slide 3: the monthly inputs of the decay model. Live De Bilt data if Build already cached it in this browser,
-    // otherwise the example De Bilt climate (same formula as build.js).
-    let months = null, live = false;
-    try {
-      const keys = Object.keys(localStorage).filter((k) => k.indexOf("beestraw-ref-v2-") === 0).sort();
-      const c = keys.length ? JSON.parse(localStorage.getItem(keys[keys.length - 1])) : null;
-      if (c && c.months && c.months.length === 12) { months = c.months; live = true; }
-    } catch (e) { /* storage blocked */ }
-    if (!months) months = Array.from({ length: 12 }, (_, m) => ({
+    // Slide 3: the monthly inputs of the decay model, for the example De Bilt climate (same formula as build.js).
+    const months = Array.from({ length: 12 }, (_, m) => ({
       t: 10.6 + 7.0 * Math.cos((2 * Math.PI * (m - 6.5)) / 12),
       wet: Math.min(0.95, Math.max(0.05, 0.62 + 0.15 * Math.cos((2 * Math.PI * (m - 0.5)) / 12)))
     }));
@@ -168,7 +161,7 @@
     // Legend and source
     w += '<line class="c-temp" x1="' + X0 + '" y1="18" x2="' + (X0 + 18) + '" y2="18"/><text class="d-lab" x="' + (X0 + 24) + '" y="21.5">soil temp. 0–7 cm</text>';
     w += '<line class="c-wet" x1="' + (X0 + 160) + '" y1="18" x2="' + (X0 + 178) + '" y2="18"/><text class="d-lab" x="' + (X0 + 184) + '" y="21.5">wet days</text>';
-    w += '<text class="d-lab c-src" x="' + X1 + '" y="' + (Y1 + 58) + '" text-anchor="end">' + (live ? "Open-Meteo · De Bilt · 5-year monthly means" : "Example climate · De Bilt · model input") + "</text>";
+    w += '<text class="d-lab c-src" x="' + X1 + '" y="' + (Y1 + 58) + '" text-anchor="end">' + "Example climate · De Bilt · model input" + "</text>";
     document.getElementById("hiw-weather").innerHTML = w;
   }
 
@@ -210,17 +203,31 @@
     if (scroll) window.scrollTo(0, 0);
   }
   document.addEventListener("click", function (e) {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return; // new tab etc.
     const a = e.target.closest('a[href^="#"]');
     if (!a) return;
     const name = a.getAttribute("href").slice(1);
     if (!views.some(function (v) { return v.dataset.view === name; })) return;
     e.preventDefault();
-    try { history.replaceState(null, "", "#" + name); } catch (err) { /* sandboxed preview */ }
+    // a history entry per page, so the browser's Back button returns to the previous page
+    // and remember where the reader was, to put them back there on Back
+    try { if (location.hash !== "#" + name) { history.replaceState({ y: window.scrollY }, ""); history.pushState({ y: 0 }, "", "#" + name); } } catch (err) { /* sandboxed preview */ }
     show(name, true);
   });
-  window.addEventListener("hashchange", function () {
-    const name = location.hash.slice(1);
-    if (views.some(function (v) { return v.dataset.view === name; })) show(name, true);
+  // Back / Forward and typed hashes: show the page the hash names, or the page that holds the element it names
+  // (#guide, #why …). popstate fires for both, so no hashchange listener. The scroll position is restored by hand:
+  // the browser would restore it while the page is still hidden.
+  function viewFor(hash) {
+    if (!hash) return "home";
+    if (views.some(function (v) { return v.dataset.view === hash; })) return hash;
+    const el = document.getElementById(hash), inView = el && el.closest("[data-view]");
+    return inView ? inView.dataset.view : null;
+  }
+  try { history.scrollRestoration = "manual"; } catch (err) { /* older browsers */ }
+  window.addEventListener("popstate", function (e) {
+    const name = viewFor(location.hash.slice(1)); if (!name) return;
+    show(name, false);
+    if (e.state && typeof e.state.y === "number") window.scrollTo({ top: e.state.y, behavior: "instant" });
   });
   const start = location.hash.slice(1);
   const target = start && document.getElementById(start);

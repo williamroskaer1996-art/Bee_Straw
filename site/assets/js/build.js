@@ -342,14 +342,23 @@
     return { t: acc.t / ws, a: acc.a / ws, w: acc.w / ws, wa: acc.wa / ws, rain: acc.rain / ws, soil: near.soil, near: near, exact: nd < 0.1 };
   }
   function climateWindowEnd() { const end = new Date(); end.setUTCDate(end.getUTCDate() - 7); return end; }
+  let climateCtrl = null;
   function fetchClimate(lat, lon) {
     const end = climateWindowEnd();
     const start = new Date(end); start.setUTCFullYear(end.getUTCFullYear() - (CFG.weatherYears || 5));
     const iso = (d) => d.toISOString().slice(0, 10);
     const base = CFG.weatherApi + "?latitude=" + lat.toFixed(3) + "&longitude=" + lon.toFixed(3) + "&start_date=" + iso(start) + "&end_date=" + iso(end) + "&timezone=UTC&daily=";
     const withSoil = "temperature_2m_mean,precipitation_sum,soil_temperature_0_to_7cm_mean,soil_moisture_0_to_7cm_mean";
-    const get = (vars) => fetch(base + vars).then((r) => r.json()).then(function (d) { if (d.error || !d.daily) throw new Error(d.reason || "no data"); return d.daily; });
-    return get(withSoil).catch(() => get("temperature_2m_mean,precipitation_sum")).then(climateFromDaily);
+    // One request at a time (a newer pin cancels the older one), and give up after 25 s in all, so a slow
+    // weather service falls back to the example climate instead of waiting forever.
+    if (climateCtrl) climateCtrl.abort();
+    const ctrl = window.AbortController ? new AbortController() : null, timer = ctrl && setTimeout(() => ctrl.abort(), 25000);
+    climateCtrl = ctrl;
+    const get = (vars) => fetch(base + vars, ctrl ? { signal: ctrl.signal } : {}).then((r) => r.json())
+      .then(function (d) { if (d.error || !d.daily) throw new Error(d.reason || "no data"); return d.daily; });
+    return get(withSoil)
+      .catch(function (e) { if (e && e.name === "AbortError") throw e; return get("temperature_2m_mean,precipitation_sum"); })
+      .then(function (d) { clearTimeout(timer); return climateFromDaily(d); }, function (e) { clearTimeout(timer); throw e; });
   }
   // Daily series → 12 monthly {t, wet} + summary.
   // Wet day [assumed]: topsoil moisture in the upper half of this place's own usual range
