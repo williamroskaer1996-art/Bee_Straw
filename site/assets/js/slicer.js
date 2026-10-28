@@ -43,9 +43,7 @@
   // ---------- Scene
   function initThree() {
     const T = window.THREE;
-    // preserveDrawingBuffer: keep the last frame on screen when nothing is redrawing. Without it some browsers
-    // (seen in Safari) show the preview only while it is being dragged or scrubbed, and a blank box otherwise.
-    const renderer = new T.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
+    const renderer = new T.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
     const scene = new T.Scene();
     const camera = new T.PerspectiveCamera(32, 1, 1, 5000);
@@ -61,11 +59,15 @@
   let renderQueued = false;
   function requestRender() { if (!renderQueued) { renderQueued = true; requestAnimationFrame(renderNow); } }
   function renderNow() { renderQueued = false; if (!three) return; three.controls.update(); three.renderer.render(three.scene, three.camera); }
+  // Resize only when the size really changes (resizing clears the canvas), then draw straight away.
+  let lastW = 0, lastH = 0;
   function resize() {
     if (!three) return;
-    const w = wrap.clientWidth, h = Math.round(Math.max(300, Math.min(560, w * 0.62)));
+    const w = canvas.clientWidth, h = Math.round(Math.max(300, Math.min(560, w * 0.62))); // canvas = the box minus padding
+    if (!w || (w === lastW && h === lastH)) return;
+    lastW = w; lastH = h;
     three.renderer.setSize(w, h, false); canvas.style.height = h + "px";
-    three.camera.aspect = w / h; three.camera.updateProjectionMatrix(); requestRender();
+    three.camera.aspect = w / h; three.camera.updateProjectionMatrix(); renderNow();
   }
 
   function buildPlate(p) {

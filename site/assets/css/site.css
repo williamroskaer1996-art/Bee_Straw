@@ -439,7 +439,9 @@ dialog.signin::backdrop { background: rgb(16 18 24 / 0.4); }
 .slicer { gap: 14px; }
 .slicer-head { display: flex; justify-content: space-between; align-items: end; gap: 12px; flex-wrap: wrap; }
 .slicer-head h2 { font-size: clamp(1.3rem, 2.4vw, 1.7rem); letter-spacing: -0.015em; }
-.slicer-view { position: relative; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); min-height: 300px; touch-action: none; }
+/* No overflow clipping around the WebGL canvas: in Safari a canvas inside a rounded, clipping box goes blank
+   whenever it isn't being redrawn. The padding keeps the square canvas inside the rounded border. */
+.slicer-view { position: relative; border: 1px solid var(--line); border-radius: 10px; padding: 4px; background: var(--surface); min-height: 300px; touch-action: none; }
 .slicer-view canvas { display: block; width: 100%; height: 300px; cursor: grab; }
 .slicer-view canvas:active { cursor: grabbing; }
 .slicer-status { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; font-size: 0.78rem; color: var(--muted); pointer-events: none; }
