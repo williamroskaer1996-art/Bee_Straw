@@ -67,7 +67,7 @@
   const PIN_KEY = "beestraw-pin"; // last pin, remembered in this browser
 
   // ---------- State
-  const state = { site: null, climate: null, source: "example", install: 2, month: 0, result: null, dir: "" };
+  const state = { site: null, climate: null, source: "example", install: 2, month: 0, result: null };
 
   // ---------- Map: Google Maps when a key is set, otherwise a satellite map (Leaflet), otherwise a preview map
   const mapEl = $("build-map");
@@ -662,8 +662,6 @@
   // Ø20 outside, drawn at their thickness (×8), thick on one side and thin on the other, thinning month by month.
   // Right: the whole straw from the side (10 cm in the soil, fuse just under the soil line, 50 cm above),
   // tipping towards the thin side when the fuse lets go. Not a structural simulation.
-  const DIRS = { E: 0, SE: 45, S: 90, SW: 135, W: 180, NW: -135, N: -90, NE: -45 };
-  const DIR_NAMES = { N: "north", NE: "north-east", E: "east", SE: "south-east", S: "south", SW: "south-west", W: "west", NW: "north-west" };
   let gyroidSlice = null;
   function sliceSegments() { // marching squares on a 0.25 mm grid, local x: thick (−x) → thin (+x)
     if (gyroidSlice) return gyroidSlice;
@@ -682,48 +680,43 @@
   }
   function drawFuse(m) {
     const r = state.result; if (!r) return;
-    const d2 = 2 * doseAt(r.cum, m) / 1000, ang = DIRS[state.dir] != null ? DIRS[state.dir] : 0, S = 8, TS = 20, cx = 116, cy = 126; // TS: sheets drawn 20× thicker
+    const d2 = 2 * doseAt(r.cum, m) / 1000, S = 8, TS = 20, cx = 108, cy = 132; // TS: sheets drawn 20× thicker
     let ghost = "", live = "";
     sliceSegments().forEach(function (q) {
-      const t = r.thick + (r.thin - r.thick) * (q[4] + 10) / 20, left = t - d2; // local x −10 (thick) … +10 (thin)
-      const seg = 'x1="' + (q[0] * S).toFixed(1) + '" y1="' + (q[1] * S).toFixed(1) + '" x2="' + (q[2] * S).toFixed(1) + '" y2="' + (q[3] * S).toFixed(1) + '"';
+      const t = r.thick + (r.thin - r.thick) * (q[4] + 10) / 20, left = t - d2; // x −10 (thick) … +10 (thin)
+      const seg = 'x1="' + (cx + q[0] * S).toFixed(1) + '" y1="' + (cy + q[1] * S).toFixed(1) + '" x2="' + (cx + q[2] * S).toFixed(1) + '" y2="' + (cy + q[3] * S).toFixed(1) + '"';
       ghost += "<line " + seg + ' stroke-width="' + (t * TS).toFixed(2) + '"/>';
       if (left > 0) live += "<line " + seg + ' stroke-width="' + (left * TS).toFixed(2) + '"/>';
     });
-    const rad = ang * Math.PI / 180, at = (rr) => [cx + rr * Math.cos(rad), cy + rr * Math.sin(rad)];
-    const thinLab = at(10 * S + 14), thickLab = at(-(10 * S + 14));
     const gone = isFinite(r.release) && m >= r.release, thinOut = isFinite(r.thinGone) && m >= r.thinGone;
-    let g = '<text class="ff-lab" x="14" y="22">fuse from above</text>' +
-      '<text class="ff-lab strong" x="14" y="38">fuse left ' + Math.round(remaining(m) * 100) + ' %</text>' +
-      '<text class="ff-lab" x="14" y="242">sheets drawn 20× thicker</text>' +
-      '<g class="ff-north"><path d="M190 30 l5 -12 l5 12 z"/><text class="ff-lab" x="195" y="42" text-anchor="middle">N</text></g>' +
-      '<g transform="translate(' + cx + " " + cy + ") rotate(" + ang + ')">' +
-        '<circle class="ff-ring" r="' + 10 * S + '"/><circle class="ff-ring" r="' + 4 * S + '"/>' +
-        '<g class="ff-ghost">' + ghost + '</g><g class="ff-live">' + live + "</g>" +
-      "</g>" +
-      '<text class="ff-lab" x="' + thinLab[0].toFixed(1) + '" y="' + (thinLab[1] + 4).toFixed(1) + '" text-anchor="middle">thin</text>' +
-      '<text class="ff-lab" x="' + thickLab[0].toFixed(1) + '" y="' + (thickLab[1] + 4).toFixed(1) + '" text-anchor="middle">thick</text>';
+    let g = '<text class="ff-title" x="14" y="22">FUSE FROM ABOVE</text>' +
+      '<text class="ff-value" x="14" y="40">' + Math.round(remaining(m) * 100) + ' % left</text>' +
+      '<circle class="ff-ring" cx="' + cx + '" cy="' + cy + '" r="' + 10 * S + '"/><circle class="ff-ring" cx="' + cx + '" cy="' + cy + '" r="' + 4 * S + '"/>' +
+      '<g class="ff-ghost">' + ghost + '</g><g class="ff-live">' + live + "</g>" +
+      '<text class="ff-lab" x="' + (cx - 10 * S - 4) + '" y="' + (cy + 10 * S + 4) + '">thick</text>' +
+      '<text class="ff-lab" x="' + (cx + 10 * S + 4) + '" y="' + (cy + 10 * S + 4) + '" text-anchor="end">thin</text>' +
+      '<text class="ff-lab" x="14" y="250">sheets drawn 20× thicker</text>';
     // Side view: soil at y 150; the straw 12 wide (Ø20, not to scale), 50 cm above with a break, 10 cm below.
-    const X = 330, Y = 150, w = 6;
+    // Drawn left in its panel so it stays in frame when it tips over to the right (the thin side).
+    const X = 258, Y = 150, w = 6;
     const tilt = gone ? Math.min(84, (m - r.release) * 168 + 10) : thinOut ? 3 : 0;
     const fuseOp = Math.max(0.15, remaining(m)).toFixed(2);
-    g += '<line class="ff-div" x1="226" y1="16" x2="226" y2="224"/>' +
-      '<text class="ff-lab" x="240" y="22">from the side</text>' +
-      '<path class="ff-soil" d="M236 ' + Y + ' H410"/><text class="ff-lab" x="' + (X - 12) + '" y="' + (Y - 6) + '" text-anchor="end">soil line</text>' +
-      '<path class="ff-hatch" d="M246 ' + (Y + 14) + ' l10 -8 M276 ' + (Y + 16) + ' l10 -8 M352 ' + (Y + 14) + ' l10 -8 M382 ' + (Y + 16) + ' l10 -8"/>' +
+    g += '<line class="ff-div" x1="214" y1="12" x2="214" y2="256"/>' +
+      '<text class="ff-title" x="228" y="22">FROM THE SIDE</text>' +
+      '<path class="ff-soil" d="M226 ' + Y + ' H410"/><text class="ff-lab" x="410" y="' + (Y + 16) + '" text-anchor="end">soil line</text>' +
+      '<path class="ff-hatch" d="M232 ' + (Y + 14) + ' l8 -7 M300 ' + (Y + 16) + ' l8 -7 M330 ' + (Y + 14) + ' l8 -7"/>' +
       '<path class="ff-straw" d="M' + (X - w) + " " + (Y + 14) + " V" + (Y + 64) + " L" + X + " " + (Y + 74) + " L" + (X + w) + " " + (Y + 64) + " V" + (Y + 14) + '"/>' +
       '<rect class="ff-fuse" x="' + (X - w) + '" y="' + (Y + 1) + '" width="' + 2 * w + '" height="12" style="opacity:' + fuseOp + '"/>' +
-      '<text class="ff-lab" x="' + (X - 12) + '" y="' + (Y + 11) + '" text-anchor="end">fuse</text>' +
-      '<text class="ff-lab" x="' + (X - 12) + '" y="' + (Y + 52) + '" text-anchor="end">10 cm</text>' +
+      '<text class="ff-lab" x="' + (X + 14) + '" y="' + (Y + 11) + '">fuse</text>' +
+      '<text class="ff-lab" x="' + (X + 14) + '" y="' + (Y + 52) + '">10 cm</text>' +
       '<g transform="rotate(' + tilt.toFixed(1) + " " + (X + w) + " " + (Y + 1) + ')">' +
         '<path class="ff-straw" d="M' + (X - w) + " " + (Y + 1) + " V" + (Y - 52) + " M" + (X + w) + " " + (Y + 1) + " V" + (Y - 52) +
           " M" + (X - w) + " " + (Y - 62) + " V" + (Y - 120) + " H" + (X + w) + " V" + (Y - 62) + " M" + (X - w) + " " + (Y + 1) + " H" + (X + w) + '"/>' +
         '<path class="ff-break" d="M' + (X - 12) + " " + (Y - 50) + " l24 -6 M" + (X - 12) + " " + (Y - 58) + " l24 -6" + '"/>' +
-        '<path class="ff-mark" d="M' + (X + w + 3) + " " + (Y - 14) + " h9 m-3 -3 l3 3 l-3 3" + '"/>' +
-        (tilt < 20 ? '<text class="ff-lab" x="' + (X + 16) + '" y="' + (Y - 84) + '">50 cm</text>' : "") +
+        (tilt < 20 ? '<path class="ff-mark" d="M' + (X + w + 3) + " " + (Y - 14) + " h9 m-3 -3 l3 3 l-3 3" + '"/>' +
+          '<text class="ff-lab" x="' + (X + 16) + '" y="' + (Y - 84) + '">50 cm</text><text class="ff-lab" x="' + (X + 22) + '" y="' + (Y - 10) + '">thin side</text>' : "") +
       "</g>" +
-      '<text class="ff-lab' + (gone ? " strong" : "") + '" x="240" y="242">' + (gone ? "let go: tipped to the thin side" : thinOut ? "thin side gone: starts to lean" : "thin side →") + "</text>" +
-      (state.dir ? '<text class="ff-lab" x="240" y="256">thin side faces ' + DIR_NAMES[state.dir] + "</text>" : "");
+      '<text class="ff-lab' + (gone || thinOut ? " ink" : "") + '" x="228" y="250">' + (gone ? "let go: tipped to the thin side" : thinOut ? "thin side gone: starts to lean" : "standing") + "</text>";
     $("fuse-fig").innerHTML = g;
   }
   function setMonth(m) {
@@ -737,15 +730,6 @@
     if (dot && state.chartX) { dot.setAttribute("cx", state.chartX(m)); dot.setAttribute("cy", state.chartY(f)); }
   }
   $("decay-month").addEventListener("input", (e) => setMonth(+e.target.value));
-  // Fall direction (optional): the thin side of the fuse is turned towards it when installing.
-  const compass = $("fall-dir");
-  if (compass) compass.addEventListener("click", function (e) {
-    const b = e.target.closest("button[data-dir]"); if (!b) return;
-    state.dir = b.dataset.dir;
-    compass.querySelectorAll("button[data-dir]").forEach((x) => x.setAttribute("aria-pressed", x === b ? "true" : "false"));
-    $("fall-dir-note").textContent = state.dir ? "Turn the arrow on the straw towards the " + DIR_NAMES[state.dir] + " when you install it." : "Any direction: turn the arrow away from paths and plants.";
-    if (state.result) { setMonth(state.month || 0); renderGuide(); }
-  });
   $("install-month").addEventListener("change", function (e) { state.install = +e.target.value; if (state.climate) render(); });
 
 
@@ -789,8 +773,7 @@
         : "For the red mason bee (<i>Osmia bicornis</i>).",
       install: installDay, emerge: ph.emerge, nestEnd: ph.nestEnd, next: ph.next,
       relDay: isFinite(relDay) ? relDay : ph.next + 60, releaseMonths: r.release,
-      early: isFinite(relDay) && relDay < ph.next, example: state.source !== "live",
-      dir: state.dir ? DIR_NAMES[state.dir] : ""
+      early: isFinite(relDay) && relDay < ph.next, example: state.source !== "live"
     });
   }
   $("guide-pdf").addEventListener("click", function () { renderGuide(); window.print(); });

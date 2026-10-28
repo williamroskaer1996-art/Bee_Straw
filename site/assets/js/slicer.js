@@ -149,30 +149,40 @@
     if (!started) return;
     const id = ++jobId, p = opts.printer;
     status.textContent = "Slicing your straw…"; status.hidden = false;
+    clearTimeout(slow);
+    slow = setTimeout(function () { if (id === jobId && !status.hidden) status.textContent = "The preview is taking long. Reload the page to try again."; }, 25000);
     loadLibs().then(function () {
-      if (!three) initThree();
+      if (!three) {
+        try { initThree(); }
+        catch (e) { status.textContent = "Your browser couldn't start the 3D preview (WebGL is turned off or not supported)."; clearTimeout(slow); return; }
+      }
       if (!worker) {
         worker = new Worker("assets/js/slicer-worker.js");
-        worker.onmessage = function (ev) { if (ev.data.id !== jobId) return; status.hidden = true; showData(ev.data); };
+        worker.onmessage = function (ev) {
+          if (ev.data.id !== jobId) return;
+          try { showData(ev.data); status.hidden = true; } catch (e) { status.textContent = "The preview couldn't be drawn in this browser."; }
+        };
         worker.onerror = function () { status.textContent = "The preview couldn't be made in this browser."; };
       }
       worker.postMessage({ id: id, printer: { name: p.name, fil: p.fil }, cx: p.bed[0] / 2, cy: p.bed[1] / 2,
         fuse: opts.fuse, palette: palette() });
     }).catch(function () { status.textContent = "The 3D preview needs a connection to load. Try again later."; });
   }
-  let timer = 0;
+  let timer = 0, slow = 0;
   function update(o) {
     let changed = false;
     if (o.printer && o.printer.id !== opts.printer.id) { opts.printer = o.printer; changed = true; }
     if (o.fuse && Math.abs(o.fuse.thick - opts.fuse.thick) > 0.004) { opts.fuse = o.fuse; changed = true; }
     if (changed && started) { clearTimeout(timer); timer = setTimeout(run, 350); }
   }
-  // Start when the preview comes near the screen (three.js is ~600 kB, so not on page load).
-  new IntersectionObserver(function (es, io) {
-    if (es.some((e) => e.isIntersecting) && !root.closest("[hidden]")) { started = true; io.disconnect(); run(); }
-  }, { rootMargin: "400px 0px" }).observe(root);
+  // Start as soon as Build is on screen (three.js is ~600 kB, so not on page load).
+  const view = root.closest("[data-view]");
+  function start() { if (!started && !view.hidden) { started = true; run(); } }
+  new MutationObserver(start).observe(view, { attributes: true, attributeFilter: ["hidden"] });
+  start();
   // Re-colour when the theme changes.
-  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function () { if (started) run(); });
+  const dark = matchMedia("(prefers-color-scheme: dark)"), recolour = function () { if (started) run(); };
+  if (dark.addEventListener) dark.addEventListener("change", recolour); else if (dark.addListener) dark.addListener(recolour);
 
   window.BeeSlicer = { update: update };
 })();

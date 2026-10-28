@@ -151,7 +151,7 @@
       <div class="card build-step" id="step-decay">
         <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center"><span class="label">Decay</span><span class="tag">Model output · uncalibrated</span></div>
         <figure class="fuse-fig">
-          <svg id="fuse-fig" viewBox="0 0 420 266" role="img" aria-label="The fuse seen from above and the straw from the side, month by month: the thin side of the graded fuse wears through first, then the straw tips towards it"></svg>
+          <svg id="fuse-fig" viewBox="0 0 420 262" role="img" aria-label="The fuse seen from above and the straw from the side, month by month: the thin side of the graded fuse wears through first, then the straw tips towards it"></svg>
           <figcaption class="mono">Illustration from the decay estimate below · not a structural simulation</figcaption>
         </figure>
         <label for="decay-month" class="readout"><span>Month <strong id="decay-label">0</strong> after installing</span><span id="decay-state" class="muted"></span></label>
@@ -171,15 +171,6 @@
         <label for="install-month" class="muted" style="font-size:.9rem">When will you install it?</label>
         <select id="install-month"><option value="0">January</option><option value="1">February</option><option value="2" selected>March</option><option value="3">April</option><option value="4">May</option></select>
         <p class="muted" id="install-hint" style="font-size:.85rem"></p>
-        <fieldset class="compass" id="fall-dir">
-          <legend class="muted">Which way may it fall? <span>(optional)</span></legend>
-          <div class="compass-grid">
-            <button type="button" data-dir="NW" aria-pressed="false" aria-label="North-west">NW</button><button type="button" data-dir="N" aria-pressed="false" aria-label="North">N</button><button type="button" data-dir="NE" aria-pressed="false" aria-label="North-east">NE</button>
-            <button type="button" data-dir="W" aria-pressed="false" aria-label="West">W</button><button type="button" data-dir="" aria-pressed="true" aria-label="Any direction">Any</button><button type="button" data-dir="E" aria-pressed="false" aria-label="East">E</button>
-            <button type="button" data-dir="SW" aria-pressed="false" aria-label="South-west">SW</button><button type="button" data-dir="S" aria-pressed="false" aria-label="South">S</button><button type="button" data-dir="SE" aria-pressed="false" aria-label="South-east">SE</button>
-          </div>
-          <p class="muted" id="fall-dir-note" style="font-size:.85rem">Any direction: turn the arrow away from paths and plants.</p>
-        </fieldset>
         <details class="more">
           <summary>How the fuse is tuned</summary>
           <dl class="kv">
@@ -216,7 +207,7 @@
         </div>
         <div class="slicer-view" id="slicer-view">
           <canvas id="slicer-canvas" role="img" aria-label="3D preview of the straw's toolpaths on your printer's build plate. Drag to turn, scroll or pinch to zoom."></canvas>
-          <p class="slicer-status mono" id="slicer-status" role="status">Preview loads when you scroll here.</p>
+          <p class="slicer-status mono" id="slicer-status" role="status">Loading the preview…</p>
           <span class="slicer-hint mono" aria-hidden="true">Drag to turn · scroll to zoom</span>
         </div>
         <label for="slicer-layer" class="readout"><span>Layer <strong id="slicer-layer-n">–</strong></span><span id="slicer-layer-z" class="muted mono"></span></label>
