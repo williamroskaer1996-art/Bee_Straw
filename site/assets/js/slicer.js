@@ -7,6 +7,7 @@
   if (!root) return;
   const LIBS = ["https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js",
     "https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"];
+  const VERSION = "20261028b"; // keep in step with the ?v= on the script tags in index.html
   const DENSITY = 1.25; // g/cm³, PHA [assumed]
   const DEFAULT = { id: "um-s5", name: "Ultimaker S5", fil: 2.85, height: 300, bed: [330, 240] };
   const $ = (id) => document.getElementById(id);
@@ -41,10 +42,17 @@
   }
 
   // ---------- Scene
+  // three.js draws on a hidden WebGL canvas; each finished frame is copied onto the visible canvas, which is a
+  // plain 2D canvas. A 2D canvas keeps its picture until it is redrawn, in every browser, so the preview can't go
+  // blank between frames (on the live site a WebGL canvas showed only while it was being dragged).
+  const glCanvas = document.createElement("canvas");
+  const ctx2d = canvas.getContext("2d");
+  let dpr = 1;
   function initThree() {
     const T = window.THREE;
-    const renderer = new T.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
-    renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+    dpr = Math.min(2, devicePixelRatio || 1);
+    const renderer = new T.WebGLRenderer({ canvas: glCanvas, antialias: true, alpha: true });
+    renderer.setPixelRatio(dpr);
     const scene = new T.Scene();
     const camera = new T.PerspectiveCamera(32, 1, 1, 5000);
     const controls = new T.OrbitControls(camera, canvas);
@@ -58,7 +66,12 @@
   }
   let renderQueued = false;
   function requestRender() { if (!renderQueued) { renderQueued = true; requestAnimationFrame(renderNow); } }
-  function renderNow() { renderQueued = false; if (!three) return; three.controls.update(); three.renderer.render(three.scene, three.camera); }
+  function renderNow() {
+    renderQueued = false; if (!three) return;
+    three.controls.update(); three.renderer.render(three.scene, three.camera);
+    ctx2d.clearRect(0, 0, canvas.width, canvas.height);
+    ctx2d.drawImage(glCanvas, 0, 0, canvas.width, canvas.height); // copy now, while the WebGL frame is still valid
+  }
   // Resize only when the size really changes (resizing clears the canvas), then draw straight away.
   let lastW = 0, lastH = 0;
   function resize() {
@@ -66,7 +79,8 @@
     const w = canvas.clientWidth, h = Math.round(Math.max(300, Math.min(560, w * 0.62))); // canvas = the box minus padding
     if (!w || (w === lastW && h === lastH)) return;
     lastW = w; lastH = h;
-    three.renderer.setSize(w, h, false); canvas.style.height = h + "px";
+    three.renderer.setSize(w, h, false);
+    canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr); canvas.style.height = h + "px";
     three.camera.aspect = w / h; three.camera.updateProjectionMatrix(); renderNow();
   }
 
@@ -165,7 +179,7 @@
         catch (e) { status.textContent = "Your browser couldn't start the 3D preview (WebGL is turned off or not supported)."; clearTimeout(slow); return; }
       }
       if (!worker) {
-        worker = new Worker("assets/js/slicer-worker.js");
+        worker = new Worker("assets/js/slicer-worker.js?v=" + VERSION);
         worker.onmessage = function (ev) {
           if (ev.data.id !== jobId) return;
           try { showData(ev.data); status.hidden = true; } catch (e) { status.textContent = "The preview couldn't be drawn in this browser."; }
