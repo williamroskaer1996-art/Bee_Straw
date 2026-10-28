@@ -117,8 +117,8 @@ function writeG(o) {
 }
 
 // ---------- Reader: G-code text → line segments per layer with type, plus filament and time estimates.
-function readG(text, palette, light) {
-  const pos = [], col = [], layerStart = [], layerZ = [], layerZone = [];
+function readG(text, palette, light) { // palette unused (colours are chosen when drawing)
+  const pos = [], types = [], widths = [], layerStart = [], layerZ = [], layerZone = [];
   let x = 0, y = 0, z = 0, e = 0, F = 1500, type = 0, eTotal = 0, time = 0, layerTime = 0, layerOpen = false;
   let area = Math.PI * 1.75 * 1.75 / 4, zPrev = 0, zLayer = 0; // for line widths: filament area and layer height
   const typeIndex = {}; TYPES.forEach((t, i) => (typeIndex[t] = i));
@@ -146,33 +146,25 @@ function readG(text, palette, light) {
       eTotal += ne - e;
       if (layerZ.length) layerZ[layerZ.length - 1] = nz;
       zLayer = nz;
-      let p = palette[type] || palette[1];
-      if (type === 3 && light.fuse) { // fuse: colour by line width, full straw colour = thick, paler = thin
+      let k = 0;
+      if (type === 3 && light.fuse) { // fuse line width, 0 = thin side … 4 = thick side
         const w = (ne - e) * area / (Math.hypot(nx - x, ny - y) * Math.max(0.05, nz - zPrev));
-        const k = Math.min(1, Math.max(0, (w - light.fuse.thin) / ((light.fuse.thick - light.fuse.thin) || 1)));
-        const a = 0.35 + 0.65 * k, bg = palette[6];
-        p = [p[0] * a + bg[0] * (1 - a), p[1] * a + bg[1] * (1 - a), p[2] * a + bg[2] * (1 - a)];
+        k = Math.round(4 * Math.min(1, Math.max(0, (w - light.fuse.thin) / ((light.fuse.thick - light.fuse.thin) || 1))));
       }
-      // shade by which way the toolpath faces (fake light from front-left), so round walls read as round
-      const mx = (x + nx) / 2 - light.cx, my = (y + ny) / 2 - light.cy, r = Math.hypot(mx, my) || 1;
-      const lit = Math.max(0, (mx * light.dx + my * light.dy) / r);
-      const band = layerStart.length % 2 ? 0.07 : 0; // alternate layers slightly, so layer lines show
-      pos.push(x - light.cx, nz, light.cy - y, nx - light.cx, nz, light.cy - ny); // three.js: y up, bed centre at 0
-      // light shading towards white (works for dark and light ink alike)
-      const q = [0, 1, 2].map((c) => Math.min(1, p[c] * (0.8 + 0.2 * lit) + (1 - p[c]) * (0.32 * lit + band)));
-      for (let k = 0; k < 2; k++) col.push(q[0], q[1], q[2]);
+      pos.push(x - light.cx, nz, light.cy - y, nx - light.cx, nz, light.cy - ny); // y up, bed centre at 0
+      types.push(type); widths.push(k);
     }
     x = nx; y = ny; z = nz; e = ne;
   }
   closeLayer();
   layerStart.push(pos.length / 6);
-  return { pos: new Float32Array(pos), col: new Float32Array(col), layerStart: layerStart, layerZ: layerZ, layerZone: layerZone, filament: eTotal, time: time };
+  return { pos: new Float32Array(pos), types: new Uint8Array(types), widths: new Uint8Array(widths), layerStart: layerStart, layerZ: layerZ, layerZone: layerZone, filament: eTotal, time: time };
 }
 
 self.onmessage = function (ev) {
   const o = ev.data, t0 = Date.now();
   const w = writeG(o);
-  const r = readG(w.text, o.palette, { cx: o.cx, cy: o.cy, dx: -0.6, dy: 0.8, fuse: o.fuse });
-  self.postMessage({ id: o.id, pos: r.pos, col: r.col, layerStart: r.layerStart, layerZ: r.layerZ, layerZone: r.layerZone,
-    filament: r.filament, time: r.time, bytes: w.text.length, parts: w.parts, ms: Date.now() - t0 }, [r.pos.buffer, r.col.buffer]);
+  const r = readG(w.text, null, { cx: o.cx, cy: o.cy, fuse: o.fuse });
+  self.postMessage({ id: o.id, pos: r.pos, types: r.types, widths: r.widths, layerStart: r.layerStart, layerZ: r.layerZ, layerZone: r.layerZone,
+    filament: r.filament, time: r.time, bytes: w.text.length, parts: w.parts, ms: Date.now() - t0 }, [r.pos.buffer, r.types.buffer, r.widths.buffer]);
 };
