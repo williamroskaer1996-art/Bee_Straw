@@ -43,7 +43,9 @@
   // ---------- Scene
   function initThree() {
     const T = window.THREE;
-    const renderer = new T.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+    // preserveDrawingBuffer: keep the last frame on screen when nothing is redrawing. Without it some browsers
+    // (seen in Safari) show the preview only while it is being dragged or scrubbed, and a blank box otherwise.
+    const renderer = new T.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
     renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
     const scene = new T.Scene();
     const camera = new T.PerspectiveCamera(32, 1, 1, 5000);
@@ -51,6 +53,7 @@
     controls.enableDamping = !reduce.matches; controls.dampingFactor = 0.12;
     controls.maxPolarAngle = Math.PI * 0.495; controls.minDistance = 40; controls.maxDistance = 2000;
     controls.addEventListener("change", requestRender);
+    controls.addEventListener("end", requestRender); // one more frame when the drag ends
     three = { T: T, renderer: renderer, scene: scene, camera: camera, controls: controls, plateGroup: null, paths: null, top: null };
     new ResizeObserver(resize).observe(wrap);
     resize();
@@ -131,6 +134,8 @@
     playing = requestAnimationFrame(tick);
   }
   slider.addEventListener("input", function () { cancelAnimationFrame(playing); setLayer(+slider.value); });
+  slider.addEventListener("change", requestRender); // and when the slider is let go
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) requestRender(); });
 
   function fmtTime(s) { const h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60); return (h ? h + " h " : "") + m + " min"; }
   function stats(d) {
