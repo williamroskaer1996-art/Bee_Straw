@@ -21,7 +21,8 @@
     return new Promise(function (res, rej) { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = () => rej(new Error("Couldn't load " + src)); document.head.appendChild(s); });
   }
   function loadLibs() {
-    if (!libs) libs = (window.THREE ? Promise.resolve() : loadScript(LIBS[0])).then(() => (window.THREE.OrbitControls ? null : loadScript(LIBS[1])));
+    if (!libs) libs = (window.THREE ? Promise.resolve() : loadScript(LIBS[0])).then(() => (window.THREE.OrbitControls ? null : loadScript(LIBS[1])))
+      .catch(function (e) { libs = null; throw e; }); // try again on the next run
     return libs;
   }
 
@@ -92,9 +93,9 @@
 
   function showData(d) {
     const T = three.T;
-    if (three.plateGroup) { three.scene.remove(three.plateGroup); three.plateGroup.traverse((o) => o.geometry && o.geometry.dispose()); }
+    if (three.plateGroup) { three.scene.remove(three.plateGroup); three.plateGroup.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); }
     three.plateGroup = buildPlate(opts.printer); three.scene.add(three.plateGroup);
-    if (three.paths) { three.scene.remove(three.paths, three.top); three.paths.geometry.dispose(); }
+    if (three.paths) { three.scene.remove(three.paths, three.top); three.paths.geometry.dispose(); three.paths.material.dispose(); three.top.material.dispose(); }
     const geo = new T.BufferGeometry();
     geo.setAttribute("position", new T.BufferAttribute(d.pos, 3));
     geo.setAttribute("color", new T.BufferAttribute(d.col, 3));
@@ -150,7 +151,7 @@
     const id = ++jobId, p = opts.printer;
     status.textContent = "Slicing your straw…"; status.hidden = false;
     clearTimeout(slow);
-    slow = setTimeout(function () { if (id === jobId && !status.hidden) status.textContent = "The preview is taking long. Reload the page to try again."; }, 25000);
+    slow = setTimeout(function () { if (id === jobId && !status.hidden && status.textContent === "Slicing your straw…") status.textContent = "The preview is taking long. Reload the page to try again."; }, 25000);
     loadLibs().then(function () {
       if (!three) {
         try { initThree(); }

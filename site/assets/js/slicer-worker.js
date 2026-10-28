@@ -54,7 +54,10 @@ function gyroidPolylines(z, R, rMin) {
     if ((v3 > 0) !== (v2 > 0)) e.push(edgePoint(((j + 1) * N + i) * 2, i, j + 1, i + 1, j + 1));     // top
     if ((v0 > 0) !== (v3 > 0)) e.push(edgePoint(B + 1, i, j, i, j + 1));                   // left
     if (e.length === 2) { if (inside(pt.get(e[0])) && inside(pt.get(e[1]))) link(e[0], e[1]); }
-    else if (e.length === 4) { link(e[0], e[1]); link(e[2], e[3]); }
+    else if (e.length === 4) { // saddle: two segments, each kept only between the bore and the outside
+      if (inside(pt.get(e[0])) && inside(pt.get(e[1]))) link(e[0], e[1]);
+      if (inside(pt.get(e[2])) && inside(pt.get(e[3]))) link(e[2], e[3]);
+    }
   }
   const seen = new Set(), lines = [];
   const walk = (start) => {
