@@ -450,11 +450,12 @@ dialog.signin::backdrop { background: rgb(16 18 24 / 0.4); }
 .fuse-fig svg { display: block; width: 100%; height: auto; }
 .fuse-fig figcaption { font-size: 0.68rem; color: var(--muted); padding: 0 12px 10px; }
 .ff-lab { fill: var(--muted); font: 9.5px var(--f-mono); }
-.ff-lab.strong { fill: var(--ink); font-weight: 600; }
+.ff-lab.ink { fill: var(--ink); }
+.ff-title { fill: var(--muted); font: 8.5px var(--f-mono); letter-spacing: 0.08em; }
+.ff-value { fill: var(--ink); font: 600 12px var(--f-mono); }
 .ff-ring { fill: none; stroke: var(--line-strong); stroke-width: 0.8; stroke-dasharray: 3 3; }
 .ff-ghost line { stroke: var(--line); stroke-linecap: round; }
 .ff-live line { stroke: var(--straw); stroke-linecap: round; }
-.ff-north path { fill: var(--ink); }
 .ff-div { stroke: var(--line); stroke-width: 1; }
 .ff-soil { stroke: var(--muted); stroke-width: 1; }
 .ff-hatch { stroke: var(--line-strong); stroke-width: 1; }
@@ -463,17 +464,10 @@ dialog.signin::backdrop { background: rgb(16 18 24 / 0.4); }
 .ff-break { stroke: var(--muted); stroke-width: 1; }
 .ff-mark { fill: none; stroke: var(--ink); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
 .ch-out { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 1 3; }
-/* Build · fall direction compass */
-.compass { border: 0; padding: 0; margin: 4px 0 0; display: grid; gap: 8px; }
-.compass legend { font-size: 0.9rem; padding: 0; margin-bottom: 6px; }
-.compass legend span { font-size: 0.82rem; }
-.compass-grid { display: grid; grid-template-columns: repeat(3, 44px); gap: 4px; }
-.compass-grid button { height: 36px; font: 500 0.75rem var(--f-mono); color: var(--muted); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
-.compass-grid button:hover { border-color: var(--ink); color: var(--ink); }
-.compass-grid button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
 
 /* Build · your dates and the download card */
-.kv.dates dd { font-family: var(--f-body); font-size: 0.98rem; font-weight: 500; text-align: right; }
+.kv.dates dd { font-family: var(--f-body); font-size: 0.92rem; text-align: right; }
+.kv.dates #date-release { font-weight: 600; }
 .more summary { cursor: pointer; font-size: 0.88rem; color: var(--muted); }
 .more[open] summary { margin-bottom: 8px; }
 .get { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }

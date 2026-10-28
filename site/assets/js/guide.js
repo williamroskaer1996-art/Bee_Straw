@@ -109,13 +109,13 @@
       "<p>" + esc(line) + '</p><div class="gs-meta"><span class="gs-tag gs-' + tag.toLowerCase() + '">' + tag + '</span><span class="gs-when">' + esc(chip) + "</span>" + (photo ? '<span class="gs-photo" title="Check-in: take a photo">' + CAMERA + "photo</span>" : "") + "</div></div></article>";
   }
 
-  // d: { place, coord, species, install, emerge, nestEnd, next, relDay, releaseMonths, early, example, dir }
+  // d: { place, coord, species, install, emerge, nestEnd, next, relDay, releaseMonths, early, example }
   function render(el, d) {
     const relText = isFinite(d.relDay) ? when(d.relDay) : "after two years";
     const stories = [
       panel(1, ART.print, "Print your straw", "One file for your printer, with the fuse tuned for your weather.", "Before " + when(d.install), "Make", true),
       panel(2, ART.spot, "Pick the spot", "Morning sun, facing south-east. Flowers and damp mud nearby.", "Before " + when(d.install), "Make", false),
-      panel(3, ART.install, "Push in, turn the arrow", "Push it in 10 cm, so the fuse sits just under the soil. Turn the arrow towards " + (d.dir ? "the " + d.dir : "where it may fall") + ".", season(d.install) + " · " + when(d.install), "Install", true),
+      panel(3, ART.install, "Push in, turn the arrow", "Push it in 10 cm, so the fuse sits just under the soil. Turn the arrow towards where it may fall.", season(d.install) + " · " + when(d.install), "Install", true),
       panel(4, ART.nest, "Bees move in", "Look for pollen and bees at the entrance.", season(d.emerge) + " · " + when(d.emerge) + " → " + when(d.nestEnd), "Watch", false),
       panel(5, ART.sealed, "Sealed with mud", "A mud cap means the nest is full.", season(d.nestEnd) + " · " + when(d.nestEnd), "Watch", true),
       panel(6, ART.winter, "Leave it alone", "Young bees sleep in cocoons through winter.", "Summer → Winter", "Wait", false),
